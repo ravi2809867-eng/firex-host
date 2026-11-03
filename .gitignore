@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+service-account.json
+*service-account*.json
+RENDER-SECRET*
+*.log
+.DS_Store

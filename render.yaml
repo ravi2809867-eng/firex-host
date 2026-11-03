@@ -1,0 +1,32 @@
+# Render Blueprint — is file ke saath repo connect karte hi sab auto-config ho jata hai.
+# Sirf EK value aapko dashboard me paste karni hai: FIREBASE_SERVICE_ACCOUNT.
+services:
+  - type: web
+    name: firex
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: NODE_ENV
+        value: production
+      - key: FIREBASE_PROJECT_ID
+        value: new-firex
+      # ↓ ye sirf aapko bharna hai (poora service-account JSON, multi-line bhi chalega)
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: PAYMENT_PROVIDER
+        value: upiqr
+      - key: UPI_AUTO_CREDIT
+        value: "true"
+      # ↓ apna asli UPI ID daalein (QR isi par payment lega). Free me koi gateway nahi.
+      - key: MERCHANT_UPI_ID
+        sync: false
+      - key: MERCHANT_NAME
+        value: FireX Esports
+      - key: BOOTSTRAP_TOKEN
+        generateValue: true
+      - key: WEBHOOK_SECRET
+        generateValue: true

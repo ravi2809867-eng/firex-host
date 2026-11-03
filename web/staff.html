@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FireX · Staff Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<style>
+:root{--bg:#0d0f16;--card:#171b26;--line:#283044;--txt:#f2f5fb;--sub:#8f9ab1;--acc:#ff8c00;--ok:#28c78a;--bad:#ff5470;--info:#38bdf8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 'Poppins',system-ui,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+header{position:sticky;top:0;background:#11151f;border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;z-index:5}
+.brand{font-weight:800;letter-spacing:.1em;display:flex;align-items:center;gap:10px}
+.logo{width:30px;height:30px;border-radius:9px;object-fit:cover}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.stat b{display:block;font-size:22px;margin-top:4px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tabs button{background:var(--card);border:1px solid var(--line);color:var(--sub);padding:8px 14px;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer}
+.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.panel{display:none}.panel.on{display:block}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:12px}
+th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--sub);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+tr:last-child td{border-bottom:0}
+.btn{border:0;border-radius:9px;padding:7px 11px;font-weight:700;font-size:11px;cursor:pointer;background:var(--ok);color:#062018}
+.btn.r{background:var(--bad);color:#fff}.btn.g{background:#2a3346;color:var(--txt)}.btn.b{background:var(--info);color:#04202e}
+input,textarea,select{width:100%;background:#10141e;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:10px 12px;font:inherit;margin:6px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.msg{padding:10px 12px;border-radius:10px;margin:10px 0;font-size:13px;background:#20283a;border:1px solid var(--line)}
+.msg.err{background:#2a1620;border-color:#5a2436;color:#ffb3c1}.msg.ok{background:#142a23;border-color:#1f5343;color:#a9f3d7}
+.badge{padding:3px 8px;border-radius:99px;font-size:10px;font-weight:800;background:#2a3346;color:var(--sub)}
+.badge.p{background:#3a2a12;color:var(--acc)}.badge.a{background:#12372a;color:var(--ok)}.badge.r{background:#3a1722;color:var(--bad)}
+#login{max-width:420px;margin:12vh auto;padding:24px}
+button.primary{width:100%;background:var(--acc);color:#fff;border:0;border-radius:11px;padding:13px;font-weight:800;font:inherit;cursor:pointer;margin-top:10px}
+.muted{color:var(--sub);font-size:12px}
+</style>
+</head>
+<body>
+
+<div id="login" class="card">
+  <div class="brand"><img class="logo" src="assets/flame-logo.jpg"><span>FIREX · STAFF</span></div>
+  <h2 style="margin:18px 0 4px;font-size:18px">Staff sign in</h2>
+  <p class="muted">Access is granted with a <code>staff</code> custom claim by the super admin. A normal player account cannot enter here.</p>
+  <input id="email" type="email" placeholder="Staff email">
+  <input id="pass" type="password" placeholder="Password">
+  <button class="primary" onclick="login()">LOGIN SECURELY</button>
+  <div id="loginMsg" class="msg" style="display:none"></div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div class="brand"><img class="logo" src="assets/flame-logo.jpg"><span>FIREX <span style="color:var(--acc)">STAFF</span></span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="badge" id="roleBadge">STAFF</span>
+      <button class="btn g" onclick="loadAll()">⟳ Refresh</button>
+      <button class="btn g" onclick="logout()">Logout</button>
+    </div>
+  </header>
+  <main>
+    <div id="msg"></div>
+    <div class="grid" id="stats"></div>
+    <div class="tabs">
+      <button class="on" data-p="deposits" onclick="tab('deposits')">Deposits</button>
+      <button data-p="withdrawals" onclick="tab('withdrawals')">Withdrawals</button>
+      <button data-p="users" onclick="tab('users')">Users</button>
+      <button data-p="tournaments" onclick="tab('tournaments')">Tournaments</button>
+      <button data-p="push" onclick="tab('push')">Send push</button>
+    </div>
+
+    <div class="panel on" id="p-deposits"><div class="card"><b>Pending deposits</b><div class="muted">Approving credits the wallet on the server (idempotent). No manual UTR/screenshot matching needed for gateway payments.</div><div id="depList" style="margin-top:12px"></div></div></div>
+    <div class="panel" id="p-withdrawals"><div class="card"><b>Pending withdrawals</b><div id="widList" style="margin-top:12px"></div></div></div>
+    <div class="panel" id="p-users"><div class="card"><b>Players</b><input id="userSearch" placeholder="Search by name / email" oninput="renderUsers()"><div id="userList"></div></div></div>
+    <div class="panel" id="p-tournaments"><div class="card"><b>Tournaments</b><div id="tList" style="margin-top:12px"></div></div></div>
+    <div class="panel" id="p-push"><div class="card">
+      <b>Send push notification (FCM)</b>
+      <label style="font-size:11px;color:var(--sub)">Title</label><input id="pushTitle" placeholder="Room details are live!">
+      <label style="font-size:11px;color:var(--sub)">Message</label><textarea id="pushBody" rows="3" placeholder="Join now, room code inside the app."></textarea>
+      <label style="font-size:11px;color:var(--sub)">Target UID (blank = all registered devices)</label><input id="pushUid" placeholder="optional">
+      <button class="primary" onclick="sendPush()">SEND PUSH</button>
+    </div></div>
+  </main>
+</div>
+
+<script>
+const CFG = {
+  apiKey:"AIzaSyDQh4WPGmZ0BZsTZNIISo7eaaeC__vtE7I", authDomain:"new-firex.firebaseapp.com",
+  projectId:"new-firex", storageBucket:"new-firex.firebasestorage.app",
+  messagingSenderId:"694101804542", appId:"1:694101804542:web:5de47bf040fc5fe8ffacaf"
+};
+if(!firebase.apps.length) firebase.initializeApp(CFG);
+const auth = firebase.auth(), db = firebase.firestore(), API = (window.FIREX_API_BASE||'') + '/api';
+let ME=null, DATA={users:[],deps:[],wids:[],tourneys:[]};
+const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=d=>d?.toDate?d.toDate().toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+function msg(t,bad){const m=$('#msg');m.textContent=t;m.className='msg '+(bad?'err':'ok');setTimeout(()=>m.className='msg',4500);}
+function loginMsg(t,bad){const m=$('#loginMsg');m.style.display='block';m.textContent=t;m.className='msg '+(bad?'err':'ok');}
+async function tok(){return auth.currentUser.getIdToken(true);}
+async function api(path,body={},method='POST'){const t=await tok();const r=await fetch(API+path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:method==='GET'?undefined:JSON.stringify(body)});const x=await r.text();let j={};try{j=x?JSON.parse(x):{}}catch{}if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j;}
+
+async function login(){
+  loginMsg('Signing in…');
+  try{
+    await auth.signInWithEmailAndPassword($('#email').value.trim(),$('#pass').value);
+  }catch(e){loginMsg(e.message,true);}
+}
+auth.onAuthStateChanged(async u=>{
+  if(!u){$('#login').style.display='block';$('#app').style.display='none';return;}
+  const r=await u.getIdTokenResult();
+  if(!r.claims.staff && !r.claims.admin){
+    $('#login').style.display='block';$('#app').style.display='none';
+    loginMsg('ACCESS DENIED: this account has no staff claim. Ask the super admin to grant it.',true);
+    await auth.signOut();return;
+  }
+  ME={uid:u.uid,email:u.email,admin:!!r.claims.admin};
+  $('#roleBadge').textContent=ME.admin?'SUPER ADMIN':'STAFF';
+  $('#login').style.display='none';$('#app').style.display='block';
+  await loadAll();
+});
+async function logout(){await auth.signOut();location.reload();}
+function tab(p){document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('on',x.id==='p-'+p));}
+
+async function loadAll(){
+  try{
+    const [u,d,w,t]=await Promise.all([
+      db.collection('users').limit(200).get(),
+      db.collection('deposits').orderBy('createdAt','desc').limit(60).get(),
+      db.collection('withdrawals').orderBy('createdAt','desc').limit(60).get(),
+      db.collection('tournaments').limit(60).get()
+    ]);
+    DATA.users=u.docs.map(x=>({id:x.id,...x.data()}));
+    DATA.deps=d.docs.map(x=>({id:x.id,...x.data()}));
+    DATA.wids=w.docs.map(x=>({id:x.id,...x.data()}));
+    DATA.tourneys=t.docs.map(x=>({id:x.id,...x.data()}));
+    renderAll();msg('Data refreshed ✓');
+  }catch(e){msg('Load failed: '+e.message,true);}
+}
+function renderAll(){renderStats();renderDeps();renderWids();renderUsers();renderT();}
+function renderStats(){
+  const p=x=>x.filter(y=>y.status==='Pending').length;
+  $('#stats').innerHTML=[
+    ['Players',DATA.users.length],['Pending deposits',p(DATA.deps)],
+    ['Pending withdrawals',p(DATA.wids)],['Tournaments',DATA.tourneys.length],
+    ['Approved deposits',DATA.deps.filter(x=>/Approved|Success/.test(x.status)).length]
+  ].map(([k,v])=>`<div class="stat"><span class="muted">${k}</span><b>${v}</b></div>`).join('');
+}
+function badge(s){const c=/Pending/i.test(s)?'p':/Approved|Success/i.test(s)?'a':'r';return `<span class="badge ${c}">${esc(s)}</span>`;}
+function renderDeps(){
+  const rows=DATA.deps.map(x=>`<tr><td>${esc(x.userEmail||x.userId||'')}</td><td><b>₹${x.amount||0}</b></td><td>${fmt(x.createdAt)}</td><td>${badge(x.status)}</td><td>
+    ${x.status==='Pending'?`<button class="btn" onclick="act('deposits','${x.id}','approve')">Approve</button> <button class="btn r" onclick="act('deposits','${x.id}','reject')">Reject</button>`:''}</td></tr>`).join('');
+  $('#depList').innerHTML=rows?`<table><tr><th>User</th><th>Amount</th><th>Date</th><th>Status</th><th>Action</th></tr>${rows}</table>`:'<p class="muted">No deposit requests.</p>';
+}
+function renderWids(){
+  const rows=DATA.wids.map(x=>`<tr><td>${esc(x.userEmail||x.userId||'')}</td><td><b>₹${x.amount||0}</b></td><td>${esc(x.upiId||'')}</td><td>${fmt(x.createdAt)}</td><td>${badge(x.status)}</td><td>
+    ${x.status==='Pending'?`<button class="btn" onclick="act('withdrawals','${x.id}','approve')">Approve</button> <button class="btn r" onclick="act('withdrawals','${x.id}','reject')">Reject</button>`:''}</td></tr>`).join('');
+  $('#widList').innerHTML=rows?`<table><tr><th>User</th><th>Amount</th><th>UPI</th><th>Date</th><th>Status</th><th>Action</th></tr>${rows}</table>`:'<p class="muted">No withdrawal requests.</p>';
+}
+function renderUsers(){
+  const q=($('#userSearch')?.value||'').toLowerCase();
+  const list=DATA.users.filter(x=>!q||(x.ffName||'').toLowerCase().includes(q)||(x.email||'').toLowerCase().includes(q)).slice(0,60);
+  $('#userList').innerHTML=`<table><tr><th>Player</th><th>Email</th><th>Winning</th><th>Deposit</th><th>Bonus</th><th>UID</th></tr>`+
+    list.map(x=>`<tr><td>${esc(x.ffName||'—')}</td><td>${esc(x.email||'')}</td><td>₹${x.wallets?.winning||0}</td><td>₹${x.wallets?.deposit||0}</td><td>₹${x.wallets?.bonus||0}</td><td style="font:10px monospace">${esc(x.id.slice(0,10))}…</td></tr>`).join('')+`</table>`;
+}
+function renderT(){
+  $('#tList').innerHTML=DATA.tourneys.length?`<table><tr><th>Name</th><th>Fee</th><th>Status</th><th>Starts</th><th>Joined</th></tr>`+
+    DATA.tourneys.map(x=>`<tr><td>${esc(x.name||x.title||'—')}</td><td>₹${x.fee??x.entryFee??0}</td><td>${badge(x.status||'upcoming')}</td><td>${fmt(x.startsAt)}</td><td>${(x.joinedUsers||[]).length}/${x.capacity||'—'}</td></tr>`).join('')+`</table>`:'<p class="muted">No tournaments yet.</p>';
+}
+async function act(kind,id,action){
+  if(!confirm(action.toUpperCase()+' this request?'))return;
+  const reason=action==='reject'?(prompt('Reason:')||'Invalid details'):undefined;
+  try{await api(`/admin/${kind}/${id}/${action}`,{reason});msg('Done ✓');await loadAll();}
+  catch(e){msg(e.message,true);}
+}
+async function sendPush(){
+  const title=$('#pushTitle').value.trim(),body=$('#pushBody').value.trim(),uid=$('#pushUid').value.trim();
+  if(!title||!body)return msg('Title and message required',true);
+  try{const r=await api('/push/send',{title,body,userIds:uid?[uid]:undefined});msg('Push sent: '+(r.sent||0)+' devices');}
+  catch(e){msg(e.message,true);}
+}
+window.addEventListener('unhandledrejection',e=>console.warn('[staff] handled:',e.reason?.message||e.reason));
+</script>
+</body>
+</html>

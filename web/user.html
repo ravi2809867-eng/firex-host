@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title> FireX Esports     </title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --bg-main: #ffffff; --surface-card: #f8f9fa; --primary: #ff8c00; --primary-glow: rgba(255, 140, 0, 0.3); 
+            --text-main: #222222; --text-sub: #666666; --success: #28a745; --warning: #ffaa00; --info: #00bfff; 
+            --primary-red: #dc3545; --border-color: rgba(0,0,0,0.1); --input-bg: #ffffff; 
+            --header-bg: rgba(255, 255, 255, 0.95); --overlay-bg: rgba(0,0,0,0.6); --vip-gold: #ffd700;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-main); color: var(--text-main); overflow-x: hidden; }
+        ::-webkit-scrollbar { display: none; }
+        
+        /* Splash Screen */
+        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); z-index: 9999999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .splash-loader { width: 45px; height: 45px; border: 4px solid var(--border-color); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #customToast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--success); color: white; padding: 12px 25px; border-radius: 25px; font-size: 13px; font-weight: bold; z-index: 999999; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: none; text-align: center; min-width: 250px; animation: popUp 0.3s ease; }
+        @keyframes popUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+        /* Auth */
+        #authScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: var(--bg-main); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; overflow-y: auto; }
+        .auth-box { background: var(--header-bg); backdrop-filter: blur(15px); padding: 40px 25px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 400px; border: 1px solid var(--border-color); }
+        .auth-logo { font-size: 28px; font-weight: 800; color: var(--primary); text-align: center; margin-bottom: 5px; letter-spacing: 2px; text-transform: uppercase;}
+        .auth-sub { text-align: center; font-size: 12px; color: var(--text-sub); margin-bottom: 25px; }
+        .input-group { margin-bottom: 15px; position: relative; }
+        .input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-sub); }
+        .auth-input { width: 100%; padding: 15px 15px 15px 45px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); font-size: 14px; outline: none; transition: 0.3s; }
+        .auth-input:focus { border-color: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+        .btn-main { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px var(--primary-glow); display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .btn-main:active { transform: scale(0.96); }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .btn-outline:active { background: var(--primary-glow); }
+        .auth-switch { text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 20px; cursor: pointer; }
+        .auth-switch span { color: var(--primary); font-weight: 600; }
+
+        /* App Layout */
+        #mainApp { min-height: 100vh; padding-bottom: 100px; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .top-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--header-bg); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .app-logo-img { height: 30px; border-radius: 5px; display: none; }
+        .app-logo-text { font-size: 18px; font-weight: 800; color: var(--primary); letter-spacing: 1px; text-transform: uppercase;}
+        .header-actions { display: flex; gap: 15px; align-items: center; }
+        .wallet-pill { background: rgba(255, 170, 0, 0.1); color: var(--warning); padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; border: 1px solid rgba(255, 170, 0, 0.3); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .live-view { font-size: 11px; font-weight: bold; background: rgba(40, 167, 69, 0.1); color: var(--success); padding: 4px 8px; border-radius: 10px; border: 1px solid var(--success); display: flex; align-items: center; gap: 5px; }
+
+        .app-section { display: none; animation: slideUp 0.3s ease; }
+        .app-section.active { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .banner-container { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 15px; padding: 15px 20px; scroll-behavior: smooth;}
+        .banner-card { flex: 0 0 100%; aspect-ratio: 16 / 9; height: auto; border-radius: 12px; background-color: var(--surface-card); scroll-snap-align: center; background-size: cover; background-position: center; border: 1px solid var(--border-color); cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.1); transition: transform 0.3s;}
+        .banner-card:active { transform: scale(0.98); }
+        .section-title { padding: 0 20px; font-size: 16px; font-weight: 700; margin: 10px 0 15px; color: var(--text-main); display: flex; align-items: center; gap: 8px;}
+        .section-title i { color: var(--primary); }
+        .match-tabs { display: flex; margin: 0 20px 15px; background: rgba(0,0,0,0.05); border-radius: 10px; padding: 5px; border: 1px solid var(--border-color); }
+        .tab-btn { flex: 1; text-align: center; padding: 10px 0; font-size: 12px; font-weight: 600; color: var(--text-sub); border-radius: 8px; cursor: pointer; transition: 0.3s; }
+        .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 10px var(--primary-glow); }
+        
+        .games-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 20px 20px; }
+        .game-card { background: var(--surface-card); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .game-card:active { transform: scale(0.95); }
+        .game-img { width: 100%; aspect-ratio: 16 / 9; height: auto; background-size: 100% 100%; background-position: center; background-repeat: no-repeat; background-color: #f0f0f0; border-bottom: 1px solid var(--border-color); }
+        .game-name { padding: 10px 5px; text-align: center; font-size: 12px; font-weight: 700; color: var(--text-main); background: var(--surface-card); }
+
+        .match-card { background: var(--surface-card); margin: 0 20px 15px; border-radius: 15px; border: 1px solid var(--border-color); overflow: hidden; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.05);}
+        .match-header { background: rgba(0,0,0,0.03); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+        .match-title { font-weight: 700; font-size: 14px; color: var(--primary); }
+        .match-time { font-size: 11px; color: var(--text-sub); }
+        .match-stats { display: flex; padding: 15px; gap: 10px; }
+        .stat-box { flex: 1; text-align: center; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); }
+        .stat-val { font-size: 14px; font-weight: 800; color: var(--text-main); margin-bottom: 2px;}
+        .stat-lbl { font-size: 10px; color: var(--text-sub); }
+        .match-footer { padding: 15px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
+        .progress-container { width: 120px; background: rgba(0,0,0,0.1); border-radius: 10px; height: 6px; overflow: hidden; margin-top: 5px; }
+        .progress-fill { height: 100%; background: var(--primary); border-radius: 10px; transition: width 0.3s; }
+        .btn-join { background: var(--primary); color: white; padding: 8px 20px; border-radius: 8px; font-weight: 700; font-size: 12px; border: none; cursor: pointer; box-shadow: 0 4px 10px var(--primary-glow); transition: 0.2s;}
+        .btn-join:active { transform: scale(0.95); }
+        
+        #categoryMatchesScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); z-index: 1000; overflow-y: auto; padding-bottom: 100px; animation: slideInRight 0.3s; }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+        .bottom-nav { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); width: 92%; background: var(--header-bg); backdrop-filter: blur(15px); display: flex; justify-content: space-between; padding: 12px 20px; border-radius: 25px; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 1000; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; color: var(--text-sub); font-size: 9px; font-weight: 500; gap: 5px; cursor: pointer; transition: 0.3s; }
+        .nav-item i { font-size: 18px; transition: 0.3s;}
+        .nav-item.active { color: var(--primary); }
+        .nav-item.active i { transform: translateY(-4px); text-shadow: 0 5px 10px var(--primary-glow); }
+        
+        .floating-wa { position: fixed; bottom: 100px; right: 20px; background: #25D366; width: 55px; height: 55px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-size: 28px; box-shadow: 0 5px 20px rgba(37, 211, 102, 0.5); z-index: 9999; cursor: pointer; transition: 0.3s; text-decoration: none;}
+        .floating-wa:active { transform: scale(0.9); }
+
+        .floating-airdrop { position: fixed; bottom: 100px; left: 20px; background: linear-gradient(135deg, var(--primary-red), #ff5722); width: 55px; height: 55px; border-radius: 50%; display: none; justify-content: center; align-items: center; color: white; font-size: 24px; box-shadow: 0 5px 20px rgba(220, 53, 69, 0.6); z-index: 9998; cursor: pointer; transition: 0.3s; animation: floatBounce 2s infinite; border: 2px solid #fff;}
+        .floating-airdrop .ad-timer { position: absolute; bottom: -12px; background: var(--bg-main); color: var(--primary-red); font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: bold; border: 1px solid var(--primary-red); white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2);}
+        @keyframes floatBounce { 0% { transform: translateY(0); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0); } }
+
+        /* Profile Overhaul */
+        .profile-header { padding: 20px; background: linear-gradient(to bottom, rgba(0,0,0,0.03), transparent); display: flex; flex-direction: column; align-items: center; }
+        .profile-avatar-container { position: relative; width: 85px; height: 85px; margin: 15px auto; cursor: pointer; }
+        .profile-avatar { width: 100%; height: 100%; background: var(--surface-card); border-radius: 50%; border: 2px solid var(--border-color); display: flex; justify-content: center; align-items: center; font-size: 40px; overflow: hidden; transition: 0.3s;}
+        .profile-avatar img { width:100%; height:100%; object-fit:cover; }
+        .vip-border { border: 3px solid var(--vip-gold) !important; box-shadow: 0 0 15px var(--vip-gold); }
+        .crown-icon { position: absolute; top: -18px; right: -12px; font-size: 30px; transform: rotate(15deg); display: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));}
+        .avatar-edit-badge { position: absolute; bottom: -5px; right: -5px; background: var(--primary); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 12px; border: 2px solid var(--bg-main); box-shadow: 0 2px 5px rgba(0,0,0,0.2);}
+        
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; display:inline-block;}
+        .b-warn { background: rgba(245,158,11,0.1); color: var(--warning); border: 1px solid var(--warning);}
+        
+        .insta-tick { display: inline-flex; justify-content: center; align-items: center; width: 16px; height: 16px; background: #1DA1F2; border-radius: 50%; position: relative; margin-left: 5px;}
+        .insta-tick::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; color: white; font-size: 9px; position: absolute;}
+
+        .profile-stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 0 20px 20px; }
+        .p-stat-box { background: rgba(0,0,0,0.03); padding: 12px 5px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); }
+        .p-stat-val { font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 2px;}
+        .p-stat-lbl { font-size: 9px; color: var(--text-sub); }
+
+        .menu-item { background: var(--surface-card); padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border-color); cursor: pointer; transition: 0.2s;}
+        .menu-item:active { transform: scale(0.98); }
+        .menu-item-left { display: flex; align-items: center; gap: 15px; font-size: 13px; font-weight: 500; }
+        .menu-item i { color: var(--primary); font-size: 16px; width: 20px; text-align: center;}
+        
+        .social-row { display: flex; justify-content: center; gap: 15px; margin: 10px 20px 20px; }
+        .social-icon { width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 22px; color: white; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
+        .social-icon.wa { background: #25D366; } .social-icon.ig { background: #E1306C; } .social-icon.dc { background: #5865F2; } .social-icon.tg { background: #0088cc; } .social-icon.yt { background: #FF0000; }
+        
+        .toggle-switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.1); transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .wallet-box { background: var(--surface-card); margin: 20px; border-radius: 15px; padding: 20px; border: 1px solid var(--border-color); box-shadow: 0 5px 15px rgba(0,0,0,0.05);}
+        .bal-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color); align-items: center;}
+        .bal-row:last-child { border: none; padding-bottom: 0; }
+        .bal-title { font-size: 13px; color: var(--text-sub); display: flex; align-items: center; gap: 8px;}
+        .bal-amt { font-size: 16px; font-weight: 800; }
+        
+        .quick-amt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .quick-amt-btn { background: rgba(0,0,0,0.03); border: 1px solid var(--border-color); padding: 10px; text-align: center; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-main); cursor: pointer; transition: 0.2s;}
+        .quick-amt-btn:active { transform: scale(0.95); }
+        .txn-item { background: var(--surface-card); padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--border-color); }
+
+        /* Modals & Chat */
+        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--overlay-bg); backdrop-filter: blur(3px); z-index: 20000; justify-content: center; align-items: flex-end;}
+        .modal-content { background: var(--bg-main); padding: 25px 20px; border-radius: 25px 25px 0 0; width: 100%; border-top: 1px solid var(--border-color); max-height: 85vh; overflow-y: auto; animation: slideUpModal 0.3s; display: flex; flex-direction: column;}
+        @keyframes slideUpModal { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        
+        .chat-container { display: flex; flex-direction: column; height: 350px; background: rgba(0,0,0,0.03); border-radius: 12px; border: 1px solid var(--border-color); margin-top: 15px; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .chat-msg { background: var(--surface-card); color: var(--text-main); padding: 8px 12px; border-radius: 12px; width: fit-content; max-width: 85%; font-size: 12px; border: 1px solid var(--border-color); }
+        .chat-msg.mine { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; border-color: var(--primary); }
+        .chat-msg.other { border-bottom-left-radius: 2px; }
+        .chat-msg .sender { font-size: 9px; color: var(--warning); margin-bottom: 2px; font-weight: bold; display:flex; align-items:center;}
+        .chat-msg.mine .sender { display: none; }
+        .chat-input-area { display: flex; padding: 10px; background: rgba(0,0,0,0.02); border-top: 1px solid var(--border-color); }
+
+        .loader { text-align: center; padding: 30px; color: var(--text-sub); font-size: 13px; }
+        .slot-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .slot-btn { width: 35px; height: 35px; border-radius: 8px; background: rgba(0,0,0,0.05); color: var(--text-main); display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; border: 1px solid var(--border-color); cursor: pointer;}
+        .slot-btn.selected { background: var(--primary); border-color: var(--primary); color: white; box-shadow: 0 0 10px var(--primary-glow); transform: scale(1.1);}
+        .slot-btn.booked { background: rgba(220,53,69,0.1); color: var(--primary-red); border-color: transparent; cursor: not-allowed; opacity: 0.5; }
+        
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        #forceUpdateModal { z-index: 999999; align-items: center; justify-content: center; }
+        #forceUpdateModal .modal-content { border-radius: 20px; text-align: center; padding: 30px; }
+        
+        #airdropModal { align-items: center; justify-content: center; z-index: 30000; }
+        #airdropModal .modal-content { border-radius: 20px; text-align: center; max-width: 90%; background: linear-gradient(135deg, var(--primary-red), #1a1a2e); color: white; border: 2px solid var(--warning); padding: 30px 20px; }
+        
+        .store-item { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .store-item.owned { opacity: 0.6; border-color: var(--success); }
+
+        .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; padding: 15px 0; max-height:200px; overflow-y:auto; }
+        .emoji-item { font-size: 28px; text-align: center; cursor: pointer; transition: 0.2s; padding:5px; border-radius:8px; background:rgba(0,0,0,0.03); border:1px solid var(--border-color);}
+        .emoji-item:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+    <div id="splashScreen">
+        <h1 id="splashAppName" style="color:var(--primary); font-size:32px; font-weight:900; letter-spacing:2px; margin-bottom:10px; text-transform:uppercase;">FireX Esports...</h1>
+        <div class="splash-loader"></div>
+    </div>
+
+    <div id="appScheduleOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-main); z-index:9999999; justify-content:center; align-items:center; flex-direction:column; text-align:center;">
+        <i class="fa-solid fa-lock" style="font-size:60px; color:var(--primary-red); margin-bottom:20px; animation: pulse 2s infinite;"></i>
+        <h1 id="schTitleText" style="color:var(--primary); margin-bottom:10px; font-weight:900; letter-spacing:2px;">APP IS CLOSED</h1>
+        <p id="schSubText" style="color:var(--text-sub); font-size:14px; padding:0 20px;">Maintenance in progress. Please check back later.</p>
+        <div id="schTimerText" style="font-size:40px; font-weight:900; color:var(--warning); margin-top:20px; font-family:monospace;"></div>
+    </div>
+
+    <div id="forceUpdateModal" class="modal-overlay" style="background: var(--bg-main);">
+        <div class="modal-content">
+            <i class="fa-solid fa-cloud-arrow-down" style="font-size: 60px; color: var(--primary); margin-bottom: 20px;"></i>
+            <h2 style="margin-bottom: 10px; color: var(--text-main);">UPDATE AVAILABLE</h2>
+            <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;">A new version of the app is required to continue playing.</p>
+            <button class="btn-main" onclick="openUpdateLink()">UPDATE NOW</button>
+        </div>
+    </div>
+
+    <div id="customToast">Message</div>
+
+    <div id="authScreen" style="display:none;">
+        <div class="auth-box" id="loginFormBox">
+            <img id="authLogoImg" src="" style="display:none; max-height:80px; margin: 0 auto 15px;">
+            <div class="auth-logo" id="authLogoText"> FireX Esports     </div>
+            <div class="auth-sub">Welcome back, Gamer!</div>
+            <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="email" id="loginEmail" class="auth-input" placeholder="Email Address"></div>
+            <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="loginPass" class="auth-input" placeholder="Password"></div>
+            <button class="btn-main" onclick="loginUser()" id="loginBtn">Login to Battle</button>
+            <div class="auth-switch" onclick="toggleAuth('signup')">Don't have an account? <span>Sign Up</span></div>
+        </div>
+        <div class="auth-box" id="signupFormBox" style="display: none;">
+            <img id="authLogoImg2" src="" style="display:none; max-height:80px; margin: 0 auto 15px;">
+            <div class="auth-logo" id="authLogoText2">Create Account</div>
+            <div class="auth-sub">Join the ultimate esports platform</div>
+            <div class="input-group"><i class="fa-solid fa-gamepad"></i><input type="text" id="regFfName" class="auth-input" placeholder="Exact Free Fire Name"></div>
+            <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="email" id="regEmail" class="auth-input" placeholder="Email Address"></div>
+            <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="regPass" class="auth-input" placeholder="Create Password"></div>
+            <div class="input-group"><i class="fa-solid fa-gift"></i><input type="text" id="regRefCode" class="auth-input" placeholder="Referral Code (Optional)"></div>
+            <button class="btn-main" onclick="registerUser()" id="signupBtn">Sign Up</button>
+            <div class="auth-switch" onclick="toggleAuth('login')">Already have an account? <span>Login</span></div>
+        </div>
+    </div>
+
+    <div id="mainApp" style="display: none;">
+        <div class="top-header">
+            <div style="display: flex; align-items: center; gap: 10px;"><img id="headerLogoImg" class="app-logo-img" src="" alt="Logo"><div class="app-logo-text" id="headerLogoText">  FireX Esports     </div></div>
+            <div class="header-actions">
+                <div class="live-view"><i class="fa-solid fa-circle" style="font-size: 6px; animation: fadeIn 1s infinite alternate;"></i> <span id="headerLiveCount">0</span></div>
+                
+                <div style="position: relative; cursor: pointer;" onclick="openNotifs()">
+                    <i class="fa-solid fa-bell" style="font-size: 22px; color: var(--text-main);"></i>
+                    <div id="notifBadge" style="display:none; position:absolute; top:-6px; right:-6px; background:var(--primary-red); color:white; min-width:16px; height:16px; border-radius:50%; font-size:9px; font-weight:bold; justify-content:center; align-items:center; border:2px solid var(--header-bg);">0</div>
+                </div>
+
+                <div class="wallet-pill" onclick="switchTab('Wallet', document.querySelectorAll('.bottom-nav .nav-item')[1])"><i class="fa-solid fa-wallet"></i> ₹<span id="topWalletBal">0</span></div>
+            </div>
+        </div>
+
+        <div id="tab-Home" class="app-section active">
+            <div class="banner-container" id="userBanners"><div class="loader">Loading Banners...</div></div>
+            <div class="section-title" style="margin-top: 0;"><i class="fa-solid fa-clipboard-list"></i> My Matches</div>
+            <div class="match-tabs"><div class="tab-btn active" onclick="filterMyMatches('Upcoming', this)">Upcoming</div><div class="tab-btn" onclick="filterMyMatches('Ongoing', this)">Ongoing</div><div class="tab-btn" onclick="filterMyMatches('Results', this)">Results</div></div>
+            <div id="myMatchesContainer"><div class="loader">Loading Your Matches...</div></div>
+            <div class="section-title"><i class="fa-solid fa-gamepad"></i> Esports Categories</div>
+            <div class="games-grid" id="userGames"></div>
+        </div>
+
+        <div id="categoryMatchesScreen">
+            <div class="top-header" style="background: var(--surface-card);"><div style="display:flex; align-items:center; gap:15px; color:var(--text-main); font-weight:bold; font-size:16px;"><i class="fa-solid fa-arrow-left" style="cursor:pointer;" onclick="closeCategoryScreen()"></i><span id="catScreenTitle">Category</span></div></div>
+            <div id="catMatchesContainer" style="padding: 20px 0;"><div class="loader">Loading Matches...</div></div>
+        </div>
+
+        <div id="tab-Wallet" class="app-section">
+            <div class="wallet-box" style="margin-top: 20px;">
+                <div class="bal-row"><div class="bal-title"><i class="fa-solid fa-money-bill-wave" style="color:var(--success);"></i> Winning Balance</div><div class="bal-amt" style="color:var(--success);">₹<span id="wWin">0</span></div></div>
+                <div class="bal-row"><div class="bal-title"><i class="fa-solid fa-piggy-bank" style="color:var(--text-main);"></i> Deposit Balance</div><div class="bal-amt">₹<span id="wDep">0</span></div></div>
+                <div class="bal-row"><div class="bal-title"><i class="fa-solid fa-gift" style="color:var(--primary);"></i> Bonus Balance</div><div class="bal-amt" style="color:var(--primary);">₹<span id="wBon">0</span></div></div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 20px 20px;">
+                <button class="btn-main" style="background: var(--success);" onclick="openDepositFlow()"><i class="fa-solid fa-plus"></i> Add Cash</button>
+                <button class="btn-outline" style="border-color: rgba(0,0,0,0.2); color:var(--text-main);" onclick="openModal('withdrawModal')"><i class="fa-solid fa-building-columns"></i> Withdraw</button>
+            </div>
+            <div class="section-title" style="margin-top: 10px;"><i class="fa-solid fa-clock-rotate-left"></i> Transaction History</div>
+            <div id="walletTxnList" style="padding: 0 20px;"><div class="loader">Loading history...</div></div>
+        </div>
+
+        <div id="tab-Leaderboard" class="app-section"><div class="section-title" style="margin-top: 20px;"><i class="fa-solid fa-trophy"></i> Top Players</div><div class="wallet-box" style="padding: 0; overflow: hidden;" id="lbContainer"><div class="loader">Loading...</div></div></div>
+
+        <div id="tab-Help" class="app-section">
+            <div class="section-title" style="margin-top: 20px;"><i class="fa-solid fa-headset"></i> Connect With Us</div>
+            <div style="text-align: center; color: var(--text-sub); font-size: 12px; margin-bottom: 10px;">Follow our official social media handles for support and updates.</div>
+            <div class="social-row" id="helpSocials"><div class="loader">Loading links...</div></div>
+            <div class="section-title" style="margin-top: 20px;"><i class="fa-solid fa-bullhorn"></i> Special Promotions</div>
+            <div id="helpBanners" style="padding: 0 20px 20px; display:flex; flex-direction:column; gap:15px;">
+                <div class="loader">Loading Banners...</div>
+            </div>
+        </div>
+
+        <div id="tab-Profile" class="app-section">
+            <div class="profile-header">
+                <div style="text-align:center; margin-bottom:10px;">
+                    <div style="font-size:12px; font-weight:bold; color:var(--warning);" id="pRankTop">Bronze 🥉</div>
+                </div>
+
+                <div class="profile-avatar-container" onclick="openEmojiPicker()">
+                    <div class="profile-avatar" id="pAvatarIcon">👦</div>
+                    <div id="pCrownIcon" class="crown-icon">👑</div>
+                    <div class="avatar-edit-badge"><i class="fa-solid fa-camera"></i></div>
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:center; gap:5px; margin-bottom:5px;">
+                    <span id="pName" style="font-size:18px; font-weight:700;">Name</span>
+                    <span id="pBlueTick" class="insta-tick" style="display:none;"></span>
+                    <i class="fa-solid fa-pen" style="font-size:12px; color:var(--text-sub); cursor:pointer; margin-left:5px;" onclick="openModal('nameModal')"></i>
+                </div>
+
+                <div style="font-size:12px; color:var(--text-sub);" id="pEmail">Loading...</div>
+                <div style="font-size:11px; margin-top:2px; color:var(--primary);">UID: <span id="pUid">...</span></div>
+
+                <div style="text-align:center; margin-top:10px; cursor:pointer;" onclick="openModal('levelModal')">
+                    <span class="badge b-warn" id="pLevelText" style="font-size:12px; padding:6px 12px; box-shadow:0 2px 5px rgba(245,158,11,0.2);">Lv. 1</span>
+                </div>
+            </div>
+
+            <div class="profile-stats-grid">
+                <div class="p-stat-box"><div class="p-stat-val" id="statTotal">0</div><div class="p-stat-lbl">Total Matches</div></div>
+                <div class="p-stat-box"><div class="p-stat-val" id="statPlayed">0</div><div class="p-stat-lbl">Played Matches</div></div>
+                <div class="p-stat-box"><div class="p-stat-val" style="color:var(--success);" id="statWon">0</div><div class="p-stat-lbl">Matches Won</div></div>
+            </div>
+            
+            <div style="padding: 0 20px 20px;">
+                <div class="menu-item" style="background: linear-gradient(45deg, #1a1a2e, #16213e); border: 1px solid var(--warning);" onclick="openVipLounge()">
+                    <div class="menu-item-left" style="color: var(--vip-gold); font-weight: bold;"><i class="fa-solid fa-crown" style="color: var(--vip-gold);"></i> VIP & Premium Store</div>
+                    <i class="fa-solid fa-chevron-right" style="font-size:12px; color:var(--vip-gold);"></i>
+                </div>
+
+                <div class="menu-item" onclick="openDirectMessage()">
+                    <div class="menu-item-left"><i class="fa-solid fa-headset" style="color:var(--info);"></i> Direct Admin Message (VIP Only)</div>
+                    <i class="fa-solid fa-chevron-right" style="font-size:12px; color:var(--text-sub);"></i>
+                </div>
+
+                <div style="background:var(--surface-card); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid var(--border-color); box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <div style="font-size: 12px; font-weight: bold; margin-bottom: 10px; color: var(--text-main);"><i class="fa-solid fa-gift" style="color:var(--primary);"></i> Redeem Gift Code</div>
+                    <div style="display: flex; gap: 0;"><input type="text" id="redeemInput" class="auth-input" placeholder="Enter Code" style="border-radius: 10px 0 0 10px; padding-left: 15px; border-right: none; flex: 1; margin:0;"><button class="btn-main" style="width: 80px; border-radius: 0 10px 10px 0; margin: 0; padding: 12px 0; box-shadow:none;" onclick="applyRedeem()">Apply</button></div>
+                </div>
+
+                <div class="menu-item" onclick="openReferModal()"><div class="menu-item-left"><i class="fa-solid fa-users-viewfinder" style="color:var(--primary);"></i> Refer & Earn</div><i class="fa-solid fa-chevron-right" style="font-size:12px; color:var(--text-sub);"></i></div>
+                <div class="menu-item" onclick="openGlobalChat()"><div class="menu-item-left"><i class="fa-solid fa-globe" style="color:var(--success);"></i> Global Public Chat</div><i class="fa-solid fa-chevron-right" style="font-size:12px; color:var(--text-sub);"></i></div>
+                <div class="menu-item" onclick="openDeveloperContact()"><div class="menu-item-left"><i class="fa-solid fa-code" style="color:var(--info);"></i> App Developer Contact</div><i class="fa-solid fa-chevron-right" style="font-size:12px; color:var(--text-sub);"></i></div>
+                <div class="menu-item" onclick="openModal('passwordModal')"><div class="menu-item-left"><i class="fa-solid fa-lock" style="color:var(--primary);"></i> Change Password (₹10)</div><i class="fa-solid fa-chevron-right" style="font-size:12px; color:var(--text-sub);"></i></div>
+                <div class="menu-item" style="cursor: default;"><div class="menu-item-left"><i class="fa-solid fa-bell" style="color:var(--primary);"></i> Notifications</div><label class="toggle-switch"><input type="checkbox" id="notifToggle" checked onchange="toggleNotifications()"><span class="slider"></span></label></div>
+                <div class="menu-item" onclick="openPolicyModal('Privacy Policy')"><div class="menu-item-left"><i class="fa-solid fa-shield-halved" style="color:var(--primary);"></i> Privacy Policy</div><i class="fa-solid fa-chevron-right" style="font-size:12px; color:var(--text-sub);"></i></div>
+                <div class="menu-item" onclick="openPolicyModal('Fair Play Policy')"><div class="menu-item-left"><i class="fa-solid fa-scale-balanced" style="color:var(--primary);"></i> Fair Play Policy</div><i class="fa-solid fa-chevron-right" style="font-size:12px; color:var(--text-sub);"></i></div>
+                <div class="menu-item" onclick="logoutUser()" style="border-color: rgba(220,53,69,0.2);"><div class="menu-item-left" style="color: var(--primary-red);"><i class="fa-solid fa-right-from-bracket" style="color: var(--primary-red);"></i> Logout</div></div>
+            </div>
+            <div style="height: 30px;"></div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('Home', this)"><i class="fa-solid fa-house"></i><span>Home</span></div>
+            <div class="nav-item" onclick="switchTab('Wallet', this)"><i class="fa-solid fa-wallet"></i><span>Wallet</span></div>
+            <div class="nav-item" onclick="switchTab('Leaderboard', this)"><i class="fa-solid fa-trophy"></i><span>Rank</span></div>
+            <div class="nav-item" onclick="switchTab('Help', this)"><i class="fa-solid fa-headset"></i><span>Help</span></div>
+            <div class="nav-item" onclick="switchTab('Profile', this)"><i class="fa-solid fa-user"></i><span>Profile</span></div>
+        </div>
+        
+        <a href="#" id="floatingWa" class="floating-wa" target="_blank" onclick="handleWaClick(event)"><i class="fa-brands fa-whatsapp"></i></a>
+        
+        <div id="floatingAirdrop" class="floating-airdrop" onclick="openModal('airdropModal')">
+            <i class="fa-solid fa-parachute-box"></i>
+            <div class="ad-timer" id="adFloatTimer">--:--:--</div>
+        </div>
+    </div> 
+
+    <div id="airdropModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="color: var(--warning); margin-bottom: 5px;"><i class="fa-solid fa-parachute-box"></i> SPECIAL AIRDROP</h2>
+            <div id="airdropTimer" style="font-size: 18px; font-weight: bold; color: var(--vip-gold); margin-bottom: 15px; font-family: monospace;">Expires in: --:--:--</div>
+            <div id="airdropContent" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                <h3 id="adOfferTitle" style="color: white; margin-bottom: 5px;">Exclusive Offer</h3>
+                <p id="adOfferDesc" style="font-size: 13px; color: #ddd;">Loading...</p>
+            </div>
+            <div id="adPaymentBox" style="display:none; background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                <div style="color: var(--text-main); font-size: 12px; font-weight: bold; margin-bottom: 10px;">Pay via UPI to Claim</div>
+                <img id="adQrImg" src="" style="width: 120px; border-radius: 10px; display: none; margin: 0 auto 10px;">
+                <div style="font-size: 12px; font-family: monospace; font-weight: bold; color: var(--primary); margin-bottom: 15px;" id="adUpiText">UPI: -----</div>
+                
+                <div style="font-size: 11px; margin-bottom: 5px; color: var(--warning); font-weight: bold;">Enter UTR OR Upload Screenshot</div>
+                <input type="text" id="adUtrInput" class="auth-input" placeholder="12-Digit UTR Number" style="background: #f0f0f0; margin-bottom: 10px; color:black; padding-left:15px;">
+                <input type="file" id="adFileInput" class="auth-input" accept="image/*" style="background: #f0f0f0; margin-bottom: 10px; color:black; padding-top: 10px; padding-left:15px;">
+                
+                <button class="btn-main" id="adSubmitBtn" onclick="submitAirdropPayment()">Claim Offer</button>
+            </div>
+            <button class="btn-outline" style="border-color: rgba(255,255,255,0.3); color: white;" onclick="closeModal('airdropModal')">Close</button>
+        </div>
+    </div>
+
+    <div id="emojiModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3>Choose Avatar</h3>
+                <i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('emojiModal')"></i>
+            </div>
+            <div style="font-size:12px; color:var(--text-sub); margin-bottom:10px;">Select an emoji (Free for all)</div>
+            <div class="emoji-grid" id="emojiGridBox"></div>
+            
+            <div style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:15px;">
+                <div style="font-size:12px; font-weight:bold; color:var(--text-main); margin-bottom:10px;">Upload Custom Photo <span style="color:var(--primary);">(VIP/Store)</span></div>
+                <input type="file" id="avatarFileInput" class="auth-input" accept="image/*" style="padding-left:15px; padding-top: 12px; margin-bottom:10px;">
+                <button class="btn-main" id="avatarUploadBtn" onclick="uploadAvatar()"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="vipModal" class="modal-overlay">
+        <div class="modal-content" style="background: #1a1a2e; color: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="color: var(--vip-gold);"><i class="fa-solid fa-crown"></i> VIP & Store</h3>
+                <i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('vipModal')"></i>
+            </div>
+            
+            <div class="match-tabs" style="background:rgba(255,255,255,0.1); margin:0 0 15px 0; border:none;">
+                <div class="tab-btn active" id="vTab1Btn" onclick="switchVipTab(1)" style="color:white;">VIP Passes</div>
+                <div class="tab-btn" id="vTab2Btn" onclick="switchVipTab(2)" style="color:white;">Individual Items</div>
+            </div>
+
+            <div id="vTab1">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 15px; line-height: 1.6;">
+                    Unlock All Premium Features:<br>✔ Profile Avatar Upload<br>✔ Exclusive Gold Crown & Blue Tick<br>✔ Direct Admin Message Access<br>✔ 8 Daily Withdrawals (Normal is 3)<br>✔ Deposit limits reduced by 50%<br>✔ Access to 'VIP Only' Matches
+                </div>
+                <div id="vipActiveBox" style="display:none; background: rgba(40, 167, 69, 0.2); border: 1px dashed var(--success); padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                    <div style="font-weight: bold; color: var(--success);"><i class="fa-solid fa-circle-check"></i> VIP Active</div>
+                    <div style="font-size: 12px; margin-top: 5px;" id="vipExpiryText">Expires on: --</div>
+                </div>
+                <div id="vipPurchaseBox">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                        <div style="background: rgba(255,255,255,0.05); padding: 15px 10px; border-radius: 10px; text-align: center; border: 1px solid var(--vip-gold); cursor: pointer;" onclick="buyStoreItem('vip_weekly')">
+                            <div style="font-size: 12px; color: #ddd; margin-bottom: 5px;">Weekly Pass</div>
+                            <div style="font-size: 20px; font-weight: bold; color: var(--vip-gold);">₹<span id="priceWeekly">49</span></div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); padding: 15px 10px; border-radius: 10px; text-align: center; border: 1px solid var(--vip-gold); cursor: pointer;" onclick="buyStoreItem('vip_monthly')">
+                            <div style="font-size: 12px; color: #ddd; margin-bottom: 5px;">Monthly Pass</div>
+                            <div style="font-size: 20px; font-weight: bold; color: var(--vip-gold);">₹<span id="priceMonthly">149</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="vTab2" style="display:none;">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Items will expire exactly 1 month from purchase date.</div>
+                
+                <div class="store-item" id="itemBox_gold_crown">
+                    <div><div style="font-weight:bold; color:var(--vip-gold);"><i class="fa-solid fa-crown"></i> Gold Crown</div><div style="font-size:10px; color:#aaa;">Show crown & gold border</div></div>
+                    <button class="btn-main" style="width:auto; padding:8px 15px; font-size:12px; margin:0;" onclick="buyStoreItem('gold_crown')">₹<span id="priceCrown">20</span></button>
+                </div>
+                
+                <div class="store-item" id="itemBox_blue_tick">
+                    <div><div style="font-weight:bold; color:#1DA1F2;"><i class="fa-solid fa-circle-check"></i> Blue Tick</div><div style="font-size:10px; color:#aaa;">Verified tick next to your name</div></div>
+                    <button class="btn-main" style="width:auto; padding:8px 15px; font-size:12px; margin:0; background:#1DA1F2;" onclick="buyStoreItem('blue_tick')">₹<span id="priceTick">20</span></button>
+                </div>
+
+                <div class="store-item" id="itemBox_avatar_upload">
+                    <div><div style="font-weight:bold; color:white;"><i class="fa-solid fa-image"></i> Avatar Upload</div><div style="font-size:10px; color:#aaa;">Unlock custom profile picture</div></div>
+                    <button class="btn-outline" style="width:auto; padding:8px 15px; font-size:12px; margin:0; color:white; border-color:white;" onclick="buyStoreItem('avatar_upload')">₹<span id="priceAvatar">15</span></button>
+                </div>
+            </div>
+            <div style="font-size: 11px; margin-top: 10px; color: var(--warning); font-weight: bold;">Note: UTR verification required after clicking buy.</div>
+        </div>
+    </div>
+
+    <div id="globalChatModal" class="modal-overlay">
+        <div class="modal-content" style="height: 85vh; display: flex; flex-direction: column; padding:0;">
+            <div style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background:var(--header-bg);">
+                <h3 style="color:var(--primary);"><i class="fa-solid fa-globe"></i> Global Chat</h3>
+                <i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('globalChatModal')"></i>
+            </div>
+            <div class="chat-messages" id="globalChatMsgContainer" style="flex:1; background:rgba(0,0,0,0.02); padding:15px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
+            <div class="chat-input-area" style="padding:15px; border-top:1px solid var(--border-color); background:var(--surface-card);">
+                <input type="text" id="gChatInput" class="auth-input" placeholder="Type a message..." style="border-radius: 20px 0 0 20px; border-right: none;">
+                <button class="btn-main" style="width: auto; padding: 0 20px; border-radius: 0 20px 20px 0; margin: 0;" onclick="sendToGlobalChat()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dmModal" class="modal-overlay">
+        <div class="modal-content" style="height: 85vh; display: flex; flex-direction: column; padding:0;">
+            <div style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background:var(--header-bg);">
+                <h3 style="color:var(--info);"><i class="fa-solid fa-headset"></i> VIP Support</h3>
+                <i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('dmModal')"></i>
+            </div>
+            <div class="chat-messages" id="dmMsgContainer" style="flex:1; background:rgba(0,0,0,0.02); padding:15px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
+            <div class="chat-input-area" style="padding:15px; border-top:1px solid var(--border-color); background:var(--surface-card);">
+                <input type="text" id="dmChatInput" class="auth-input" placeholder="Message Admin..." style="border-radius: 20px 0 0 20px; border-right: none;">
+                <button class="btn-main" style="width: auto; padding: 0 20px; border-radius: 0 20px 20px 0; margin: 0; background:var(--info);" onclick="sendDmMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="levelModal" class="modal-overlay"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3>Level Rewards</h3><i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('levelModal')"></i></div>
+        <div style="text-align: center; margin-bottom: 20px; color: var(--text-sub); font-size: 13px;">Play 10 matches to reach the next level. Claim ₹5 for every level completed!</div>
+        <div id="lvlProgressTextMod" style="font-size:14px; font-weight:bold; text-align:center; color:var(--text-main); margin-bottom:10px;">0/10 Matches</div>
+        <div style="width:100%; background:rgba(0,0,0,0.1); height:12px; border-radius:10px; overflow:hidden; margin-bottom:20px;">
+            <div id="lvlProgressBarMod" style="width:0%; height:100%; background:var(--info); transition:0.3s;"></div>
+        </div>
+        <button class="btn-main" id="lvlClaimBtnMod" style="background:var(--success); display:none;" onclick="claimLevelBonus()">CLAIM ₹5 REWARD</button>
+    </div></div>
+
+    <div id="referModal" class="modal-overlay">
+        <div class="modal-content" style="max-height: 90vh;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3>Refer & Earn</h3>
+                <i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('referModal')"></i>
+            </div>
+            <div class="wallet-box" style="text-align: center; margin: 0 0 20px 0;">
+                <i class="fa-solid fa-gift" style="font-size: 50px; color: var(--primary); margin-bottom: 15px;"></i><div style="font-size: 14px; margin-bottom: 10px;">Share your code and earn bonus! <br><span style="font-size:10px; color:var(--warning);">(Bonus unlocks when your friend plays their 1st Match)</span></div>
+                <div style="background: rgba(0,0,0,0.03); border: 1px dashed var(--primary); padding: 15px; border-radius: 12px; font-family: monospace; font-size: 24px; font-weight: bold; letter-spacing: 2px; color: var(--warning); margin-bottom: 15px;" id="referTabCode">Loading...</div>
+                <div style="display:flex; gap:10px;"><button class="btn-outline" style="flex:1; padding: 10px;" onclick="copyRefCode()"><i class="fa-solid fa-copy"></i> Copy</button><button class="btn-main" style="flex:1; padding: 10px; background:#25D366; color:white; border:none;" onclick="shareOnWhatsApp()"><i class="fa-brands fa-whatsapp"></i> Share</button></div>
+            </div>
+            <div class="section-title" style="padding:0;"><i class="fa-solid fa-clock-rotate-left"></i> Referral History</div>
+            <div id="referHistoryList" style="padding: 10px 0;"><div class="loader">Loading history...</div></div>
+        </div>
+    </div>
+
+    <div id="matchModal" class="modal-overlay" style="align-items: center;">
+        <div class="modal-content" style="border-radius: 20px; max-height: 95vh; padding: 0; max-width: 400px; margin: 0 auto; display: flex; flex-direction: column; overflow: hidden;">
+            <div id="mModalBanner" style="width: 100%; aspect-ratio: 16 / 9; height: auto; background: #e0e0e0; background-size: 100% 100%; background-position: center; background-repeat: no-repeat; position: relative; flex-shrink: 0;"><i class="fa-solid fa-circle-xmark" style="position: absolute; top: 15px; right: 15px; font-size: 24px; color: white; cursor: pointer; text-shadow: 0 2px 5px rgba(0,0,0,0.5);" onclick="closeModal('matchModal')"></i></div>
+            <div style="display: flex; background: var(--surface-card); border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                <div class="tab-btn active" id="mTabDetailsBtn" onclick="switchMatchModalTab('Details')" style="border-radius:0; padding:12px 0; font-size:11px;">Details</div>
+                <div class="tab-btn" id="mTabPlayersBtn" onclick="switchMatchModalTab('Players')" style="border-radius:0; padding:12px 0; font-size:11px;">Players</div>
+                <div class="tab-btn" id="mTabRulesBtn" onclick="switchMatchModalTab('Rules')" style="border-radius:0; padding:12px 0; font-size:11px;">Pricewala & Rules</div>
+                <div class="tab-btn" id="mTabChatBtn" onclick="switchMatchModalTab('Chat')" style="border-radius:0; padding:12px 0; font-size:11px; display:none;">Chat <i class="fa-solid fa-lock" style="font-size:9px; color:var(--primary-red);" id="chatLockIcon"></i></div>
+            </div>
+            
+            <div id="mTabDetails" style="padding: 20px; overflow-y: auto; flex: 1;">
+                <h3 id="mModalName" style="margin-bottom: 5px; color: var(--primary);">Match Name</h3><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;"><div style="font-size: 12px; color: var(--text-sub);" id="mModalTime">Date & Time</div><div style="font-size: 11px; font-weight: bold; color: var(--warning); display:none;" id="mModalCountdown">Starts in: 00:00:00</div></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;"><div style="background: rgba(0,0,0,0.03); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px;"><div style="font-size:10px; color:var(--text-sub);">Entry Fee</div><div style="font-weight:bold; color:var(--text-main);" id="mModalFee">₹0</div></div><div style="background: rgba(0,0,0,0.03); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px;"><div style="font-size:10px; color:var(--text-sub);">Prize Pool</div><div style="font-weight:bold; color:var(--warning);" id="mModalPool">₹0</div></div><div style="background: rgba(0,0,0,0.03); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px;"><div style="font-size:10px; color:var(--text-sub);">Per Kill</div><div style="font-weight:bold; color:var(--success);" id="mModalKill">₹0</div></div><div style="background: rgba(0,0,0,0.03); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px;"><div style="font-size:10px; color:var(--text-sub);">Map & Type</div><div style="font-weight:bold; color:var(--text-main);" id="mModalType">Bermuda | Solo</div></div></div>
+                
+                <div id="mModalJoinSection">
+                    <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px; color: var(--primary-red);" id="joinErrorMsg"></div>
+                    <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px; margin-top: 5px;">Select Slots</div>
+                    <div class="slot-grid" id="mSlotGrid" style="margin-bottom: 15px;"></div>
+                    <div id="dynamicPlayerInputs"></div>
+                    <button class="btn-main" style="margin-top: 15px;" id="mJoinBtn" onclick="confirmJoinMatch()">Confirm Join (₹<span id="mBtnFee">0</span>)</button>
+                </div>
+                
+                <div id="mModalRoomSection" style="display: none; background: rgba(40, 167, 69, 0.1); border: 1px dashed var(--success); padding: 15px; border-radius: 10px; text-align: center; margin-top: 15px;">
+                    <div style="font-size: 11px; color: var(--success); margin-bottom: 5px; font-weight: bold;">ROOM ID & PASSWORD</div>
+                    <div style="font-size: 18px; font-family: monospace; font-weight: bold; letter-spacing: 2px; color: var(--text-main); display:flex; justify-content:center; align-items:center; gap:10px;" id="mShowRoomId">ID: -----</div>
+                    <div style="font-size: 14px; font-family: monospace; color: var(--warning); margin-top: 5px; display:flex; justify-content:center; align-items:center; gap:10px;" id="mShowRoomPass">Pass: -----</div>
+                </div>
+            </div>
+            
+            <div id="mTabPlayers" style="display:none; padding: 20px; overflow-y: auto; flex: 1; background: var(--surface-card);"></div>
+            <div id="mTabRules" style="display:none; padding: 20px; overflow-y: auto; flex: 1;"><h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid fa-scroll"></i> Match Rules</h3><div style="font-size: 12px; color: var(--text-sub); line-height: 1.6; white-space: pre-wrap;" id="mModalRules">Rules here...</div></div>
+            <div id="mTabChat" style="display:none; flex: 1; flex-direction: column; overflow: hidden; background: var(--bg-main);"><div class="chat-messages" id="chatMsgContainer"></div><div class="chat-input-area"><input type="text" id="chatInput" class="auth-input" placeholder="Type a message..." style="border-radius: 20px 0 0 20px; border-right: none;"><button class="btn-main" style="width: auto; padding: 0 20px; border-radius: 0 20px 20px 0; margin: 0;" onclick="sendChatMessage()"><i class="fa-solid fa-paper-plane"></i></button></div></div>
+        </div>
+    </div>
+
+    <div id="depositModal" class="modal-overlay">
+        <div class="modal-content" style="max-height: 90vh;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>Add Cash</h3><i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeDepositModal()"></i>
+            </div>
+            
+            <div id="depStep1">
+                <div style="font-size: 12px; color: var(--text-sub); margin-bottom: 10px;">Min Deposit: ₹<span id="depMinAmt">10</span></div>
+                <div class="input-group" style="margin-bottom: 20px;"><i class="fa-solid fa-indian-rupee-sign" style="font-size: 20px; color: var(--primary);"></i><input type="number" id="depAmtInput" class="auth-input" style="font-size: 24px; font-weight: bold; padding-left: 50px;" placeholder="0"></div>
+                <div style="font-size: 11px; margin-bottom: 10px; color: var(--text-sub);">Quick Amount</div>
+                <div class="quick-amt-grid"><div class="quick-amt-btn" onclick="setDepAmt(10)">₹10</div><div class="quick-amt-btn" onclick="setDepAmt(20)">₹20</div><div class="quick-amt-btn" onclick="setDepAmt(30)">₹30</div><div class="quick-amt-btn" onclick="setDepAmt(50)">₹50</div><div class="quick-amt-btn" onclick="setDepAmt(100)">₹100</div><div class="quick-amt-btn" onclick="setDepAmt(500)">₹500</div></div>
+                <button class="btn-main" onclick="goToDepositStep2()">Next Step <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+            
+            <div id="depStep2" style="display: none;">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <div style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 10px;">Scan QR to Pay ₹<span id="depPayAmt" style="color:var(--success); font-size:16px;">0</span></div>
+                    <img id="depQrImg" src="" style="width: 180px; height: 180px; border-radius: 10px; display: none; margin: 0 auto 10px; border: 2px solid var(--primary);">
+                    <div style="font-size: 14px; font-family: monospace; font-weight: bold; color: var(--info); display: flex; justify-content: center; align-items: center; gap: 10px;" id="depUpiText">UPI: ----- <i class="fa-solid fa-copy" style="color: var(--text-main); cursor: pointer; font-size: 16px;" onclick="copyAdminUpi()"></i></div>
+                </div>
+                
+                <div style="border-top: 1px solid var(--border-color); margin-bottom: 15px;"></div>
+                <div style="font-size: 11px; margin-bottom: 5px; color: var(--warning); font-weight: bold;">Enter UTR & Upload Screenshot, Coin will not Add wait 2min After re-open</div>
+                <div class="input-group"><i class="fa-solid fa-hashtag"></i><input type="text" id="depUtrInput" class="auth-input" placeholder="12-Digit UTR Number"></div>
+                <div class="input-group"><i class="fa-solid fa-image"></i><input type="file" id="depFileInput" class="auth-input" accept="image/*" style="padding-left: 45px; padding-top: 12px;"></div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-outline" style="flex: 0.5;" onclick="backToDepositStep1()">Back</button>
+                    <button class="btn-main" style="flex: 1;" id="depSubmitFinalBtn" onclick="submitFinalDeposit()">Confirm Deposit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="withdrawModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>Withdraw Winnings</h3><i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('withdrawModal')"></i>
+            </div>
+            <div style="font-size: 12px; color: var(--warning); margin-bottom: 15px; background: rgba(255,170,0,0.1); padding: 10px; border-radius: 8px; border: 1px dashed var(--warning);">
+                Available Winnings: ₹<span id="widAvailBal" style="font-weight:bold;">0</span><br>
+                Limits: ₹<span id="widMin">50</span> to ₹<span id="widMax">5000</span><br>
+                <span id="widDailyCountText" style="color:var(--text-sub); font-size:10px;">Daily allowed: 3</span>
+            </div>
+            <div class="input-group"><i class="fa-solid fa-indian-rupee-sign"></i><input type="number" id="widAmt" class="auth-input" placeholder="Withdraw Amount"></div>
+            
+            <div class="match-tabs" style="margin-bottom: 15px; background: rgba(0,0,0,0.02);">
+                <div class="tab-btn active" id="widMethodUpiBtn" onclick="switchWidMethod('upi')">UPI Transfer</div>
+                <div class="tab-btn" id="widMethodRedeemBtn" onclick="switchWidMethod('redeem')"> RedeemCode</div>
+            </div>
+            <input type="hidden" id="widSelectedMethod" value="upi">
+            
+            <div id="widUpiFields">
+                <div class="input-group"><i class="fa-solid fa-mobile"></i><input type="text" id="widUpi" class="auth-input" placeholder="UPI ID or PhonePe Number"></div>
+                <div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="widName" class="auth-input" placeholder="Account Holder Name"></div>
+            </div>
+            <div id="widRedeemFields" style="display:none;">
+                <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="text" id="widContact" class="auth-input" placeholder="Email / WhatsApp Number"></div>
+                <div style="font-size: 10px; color: var(--primary); margin-bottom: 15px; text-align:center;">Redeem code will be sent to this contact.</div>
+            </div>
+            
+            <button class="btn-main" id="widSubmitBtn" onclick="submitWithdraw()">Request Withdraw</button>
+        </div>
+    </div>
+    
+    <div id="nameModal" class="modal-overlay"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3>Edit Username (Free)</h3><i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('nameModal')"></i></div><div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="editNameInput" class="auth-input" placeholder="New Free Fire Name"></div><button class="btn-main" onclick="saveNewName()">Save Changes</button></div></div>
+
+    <div id="passwordModal" class="modal-overlay"><div class="modal-content"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3>Change Password (₹10 Fee)</h3><i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('passwordModal')"></i></div><div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="newPassInput" class="auth-input" placeholder="Enter New Password"></div><button class="btn-main" onclick="saveNewPassword()">Pay ₹10 & Update Password</button></div></div>
+
+    <div id="policyModal" class="modal-overlay"><div class="modal-content" style="max-height: 90vh;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3 id="policyTitle">Policy</h3><i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('policyModal')"></i></div><div style="font-size: 12px; color: var(--text-sub); line-height: 1.6; white-space: pre-wrap;" id="policyContent">Content loading...</div></div></div>
+
+    <div id="notificationsModal" class="modal-overlay"><div class="modal-content" style="max-height: 90vh;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h3>Notifications</h3><i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="closeModal('notificationsModal')"></i></div><div id="notifListContainer" style="display: flex; flex-direction: column; gap: 10px;"><div class="loader">Loading Alerts...</div></div></div></div>
+
+    <script>
+        const APP_VERSION = 1;
+
+
+               const firebaseConfig = {
+  apiKey: "AIzaSyDQh4WPGmZ0BZsTZNIISo7eaaeC__vtE7I",
+  authDomain: "new-firex.firebaseapp.com",
+  projectId: "new-firex",
+  storageBucket: "new-firex.firebasestorage.app",
+  messagingSenderId: "694101804542",
+  appId: "1:694101804542:web:5de47bf040fc5fe8ffacaf"
+};
+
+   
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        const auth = firebase.auth(); const db = firebase.firestore();
+
+        window.currentUser = null; window.userData = null; window.appSettings = { pricing: {} }; window.appSocials = {}; window.allTournaments = []; window.selectedMatch = null; window.selectedSlots = []; let chatUnsubscribe = null; let countdownInterval = null; window.notifsEnabled = true; window.allUserTxns = []; let gChatUnsub = null; let scheduleInterval = null; let adTimerInt = null; let dmChatUnsub = null;
+        window.lastChatTime = 0; 
+
+        const EMOJI_LIST = ["👦","👧","👨","👩","🧔","👱‍♂️","🧑‍🦰","👮‍♂️","🕵️‍♂️","💂‍♂️","👷‍♂️","🤴","🧛‍♂️","🧟‍♂️","🦸‍♂️","🦹‍♂️","🧙‍♂️","🧚‍♂️","👼","👽","🤖","🤡","👹","👺","👻","💀","☠️","🐵","🦍","🐶","🐺","🦊","🦁","🐯","🐴"];
+
+        const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+        const setHtml = (id, val) => { const el = document.getElementById(id); if(el) el.innerHTML = val; };
+
+        function showToast(msg, isError = false) { const toast = document.getElementById('customToast'); if(!toast) return; toast.innerText = msg; toast.style.background = isError ? "var(--primary-red)" : "var(--success)"; toast.style.display = 'block'; setTimeout(() => { toast.style.display = 'none'; }, 3500); }
+        window.alert = function(msg) { showToast(msg, false); }; 
+
+        window.openModal = (id) => { const el = document.getElementById(id); if(el) el.style.display = 'flex'; };
+        window.closeModal = (id) => { const el = document.getElementById(id); if(el) el.style.display = 'none'; if(id === 'matchModal') { if(chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; } if(countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; } setTxt('joinErrorMsg', ""); } if(id === 'dmModal' && dmChatUnsub) { dmChatUnsub(); dmChatUnsub = null; } };
+        window.copyToClipboard = (text) => { navigator.clipboard.writeText(text).then(() => { showToast("Copied!"); }).catch(e => { showToast("Failed to copy", true); }); };
+        window.copyRefCode = () => { window.copyToClipboard(window.userData?.myReferralCode || "N/A"); };
+        window.copyAdminUpi = () => { window.copyToClipboard(window.appSettings?.upiId || ""); };
+
+        window.openReferModal = () => { loadReferralHistory(); openModal('referModal'); };
+        window.openNotifs = () => { localStorage.setItem('lastNotifView', Date.now()); const badge = document.getElementById('notifBadge'); if(badge) badge.style.display = 'none'; openModal('notificationsModal'); };
+
+        window.switchTab = (tabId, element) => {
+            if(element) { document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active')); element.classList.add('active'); }
+            document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active')); const tab = document.getElementById('tab-' + tabId); if(tab) tab.classList.add('active'); window.scrollTo(0,0);
+            if(tabId === 'Home') loadHomeData(); if(tabId === 'Leaderboard') loadLeaderboard(); if(tabId === 'Wallet') loadUserTransactions(); if(tabId === 'Profile') { calculateProfileStats(); renderSocials(); } if(tabId === 'Help') renderSocials();
+        };
+
+        window.handleWaClick = (e) => { if(!window.appSettings?.whatsappFloat) { e.preventDefault(); showToast("Admin has not set WhatsApp number yet!", true); } };
+
+        function listenToAppSchedule() {
+            db.collection("settings").doc("appStatus").onSnapshot((docSnap) => {
+                const overlay = document.getElementById('appScheduleOverlay');
+                if(!docSnap.exists) { overlay.style.display = 'none'; return; }
+                const d = docSnap.data(); if(scheduleInterval) clearInterval(scheduleInterval);
+                if(d.status === 'open') { overlay.style.display = 'none'; } 
+                else if(d.status === 'closed') { 
+                    document.getElementById('schTitleText').innerText = "APP IS CLOSED"; 
+                    document.getElementById('schSubText').innerText = d.message || "Maintenance in progress. Please check back later."; 
+                    document.getElementById('schTimerText').innerText = ""; overlay.style.display = 'flex'; 
+                } 
+                else if(d.status === 'scheduled') {
+                    document.getElementById('schTitleText').innerText = "SCHEDULED DOWNTIME"; 
+                    document.getElementById('schSubText').innerText = d.message || "App will open exactly at:";
+                    const updateCountdown = () => {
+                        const now = new Date(); if(!d.start || !d.end) return;
+                        const stParts = d.start.split(':'); const enParts = d.end.split(':');
+                        const startTime = new Date(); startTime.setHours(stParts[0], stParts[1], 0);
+                        const endTime = new Date(); endTime.setHours(enParts[0], enParts[1], 0);
+                        if(now >= startTime && now <= endTime) { overlay.style.display = 'none'; } else {
+                            overlay.style.display = 'flex'; let diff = startTime - now;
+                            if(diff < 0) { startTime.setDate(startTime.getDate() + 1); diff = startTime - now; }
+                            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); const s = Math.floor((diff % (1000 * 60)) / 1000);
+                            document.getElementById('schTimerText').innerText = `${h}h ${m}m ${s}s`;
+                        }
+                    };
+                    updateCountdown(); scheduleInterval = setInterval(updateCountdown, 1000);
+                }
+            }, (err) => { document.getElementById('appScheduleOverlay').style.display = 'none'; });
+        }
+
+        async function fetchAppConfig() {
+            try {
+                const themeSnap = await db.collection("settings").doc("theme").get();
+                if(themeSnap.exists && themeSnap.data().activeTheme) { 
+                    const theme = themeSnap.data().activeTheme; const root = document.documentElement; 
+                    if(theme === 'blue') { root.style.setProperty('--bg-main', '#ffffff'); root.style.setProperty('--surface-card', '#f0f0f0'); root.style.setProperty('--primary', '#007bff'); root.style.setProperty('--primary-glow', 'rgba(0, 123, 255, 0.3)'); root.style.setProperty('--text-main', '#333333'); } 
+                    else if(theme === 'green') { root.style.setProperty('--bg-main', '#ffffff'); root.style.setProperty('--surface-card', '#f5ebe0'); root.style.setProperty('--primary', '#28a745'); root.style.setProperty('--primary-glow', 'rgba(40, 167, 69, 0.3)'); root.style.setProperty('--text-main', '#3e2723'); } 
+                    else if(theme === 'red') { root.style.setProperty('--bg-main', '#ffffff'); root.style.setProperty('--surface-card', '#f8f9fa'); root.style.setProperty('--primary', '#dc3545'); root.style.setProperty('--primary-glow', 'rgba(220, 53, 69, 0.3)'); root.style.setProperty('--text-main', '#222222'); }
+                    else { root.style.setProperty('--bg-main', '#ffffff'); root.style.setProperty('--surface-card', '#f8f9fa'); root.style.setProperty('--primary', '#ff8c00'); root.style.setProperty('--primary-glow', 'rgba(255, 140, 0, 0.3)'); root.style.setProperty('--text-main', '#222222'); } 
+                }
+                
+                const genSnap = await db.collection("settings").doc("general").get();
+                if(genSnap.exists) {
+                    window.appSettings = {...window.appSettings, ...genSnap.data()}; const d = window.appSettings;
+                    if(d.latestVersion && d.latestVersion > APP_VERSION) { document.getElementById('forceUpdateModal').style.display = 'flex'; }
+                    if(d.appName) { setTxt('splashAppName', d.appName); setTxt('authLogoText', d.appName); setTxt('authLogoText2', d.appName); setTxt('headerLogoText', d.appName); document.title = d.appName; }
+                    if(d.logoUrl) { 
+                        const hl = document.getElementById('headerLogoImg'); if(hl) { hl.src = d.logoUrl; hl.style.display = 'block'; }
+                        const hlt = document.getElementById('headerLogoText'); if(hlt) hlt.style.display = 'none'; 
+                        const a1 = document.getElementById('authLogoImg'); if(a1) { a1.src = d.logoUrl; a1.style.display = 'block'; }
+                        const at1 = document.getElementById('authLogoText'); if(at1) at1.style.display = 'none';
+                        const a2 = document.getElementById('authLogoImg2'); if(a2) { a2.src = d.logoUrl; a2.style.display = 'block'; }
+                        const at2 = document.getElementById('authLogoText2'); if(at2) at2.style.display = 'none';
+                    }
+                    if(d.whatsappFloat && d.whatsappFloat.toString().trim() !== "") { 
+                        let waNum = d.whatsappFloat.toString().trim(); 
+                        if(waNum.length === 10) waNum = "91" + waNum; 
+                        const fw = document.getElementById('floatingWa'); 
+                        if(fw) { fw.href = `https://wa.me/${waNum}?text=${encodeURIComponent("Hi Sir, I am a player on " + (d.appName||"App") + ". I need some support.")}`; fw.style.display = 'flex'; } 
+                    }
+                }
+                const widSnap = await db.collection("settings").doc("withdrawLimits").get(); if(widSnap.exists) { window.appSettings.widMin = widSnap.data().min; window.appSettings.widMax = widSnap.data().max; }
+                const socSnap = await db.collection("settings").doc("socials").get(); if(socSnap.exists) { window.appSocials = socSnap.data(); }
+                const refSetSnap = await db.collection("settings").doc("referral").get(); if(refSetSnap.exists) { window.appSettings.referralBonus = refSetSnap.data().bonusAmount; }
+                const priceSnap = await db.collection("settings").doc("pricing").get(); if(priceSnap.exists) { window.appSettings.pricing = priceSnap.data(); } else { window.appSettings.pricing = {}; }
+                
+                db.collection("settings").doc("liveStats").onSnapshot((docSnap) => { if (docSnap.exists) setTxt('headerLiveCount', docSnap.data().activeCount || 0); });
+            } catch(e) {}
+        }
+        fetchAppConfig();
+        window.openUpdateLink = () => { if(window.appSettings?.updateLink) window.open(window.appSettings.updateLink, '_blank'); };
+
+        window.toggleAuth = (type) => { 
+            const lb = document.getElementById('loginFormBox'); if(lb) lb.style.display = type === 'signup' ? 'none' : 'block'; 
+            const sb = document.getElementById('signupFormBox'); if(sb) sb.style.display = type === 'signup' ? 'block' : 'none'; 
+        };
+        
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                window.currentUser = user; 
+                await loadUserProfile(user.uid); 
+                document.getElementById('splashScreen').style.display = 'none';
+                document.getElementById('authScreen').style.display = 'none'; 
+                document.getElementById('mainApp').style.display = 'block';
+                listenToAppSchedule(); 
+                loadHomeData(); await loadUserTransactions(); loadReferralHistory(); renderSocials(); checkAirdrop();
+                try { await db.collection("settings").doc("liveStats").update({ activeCount: firebase.firestore.FieldValue.increment(1) }); } catch(e){} 
+            } else {
+                if(window.currentUser) { try { await db.collection("settings").doc("liveStats").update({ activeCount: firebase.firestore.FieldValue.increment(-1) }); } catch(e){} }
+                window.currentUser = null; window.userData = null; 
+                document.getElementById('splashScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'none'; 
+                document.getElementById('appScheduleOverlay').style.display = 'none';
+                document.getElementById('authScreen').style.display = 'flex';
+                if(adTimerInt) clearInterval(adTimerInt);
+            }
+        });
+
+        window.logoutUser = async () => { if(confirm("Logout from App?")) await auth.signOut(); };
+
+        window.registerUser = async () => {
+            const btn = document.getElementById('signupBtn'); const ffName = document.getElementById('regFfName').value.trim(); const email = document.getElementById('regEmail').value.trim(); const pass = document.getElementById('regPass').value; const refCode = document.getElementById('regRefCode').value.trim();
+            if(!ffName || !email || !pass) return showToast("Fill required fields!", true);
+            
+            if(btn) { btn.innerText = "Creating..."; btn.disabled = true; }
+            
+            try {
+                const nameCheck = await db.collection("users").where("ffName", "==", ffName).get();
+                if(!nameCheck.empty) { if(btn) { btn.innerText = "Sign Up"; btn.disabled = false; } return showToast("Username already taken! Please choose another.", true); }
+
+                let signupBonus = window.appSettings?.signupBonus || 0;
+                const cred = await auth.createUserWithEmailAndPassword(email, pass); const uid = cred.user.uid; 
+                let appPrefix = "APP"; if(window.appSettings && window.appSettings.appName) { appPrefix = window.appSettings.appName.replace(/\s+/g, '').substring(0, 4).toUpperCase(); }
+                const myRef = appPrefix + Math.floor(Math.random()*9000 + 1000); 
+                
+                await db.collection("users").doc(uid).set({ ffName: ffName, email: email, wallets: { winning: 0, deposit: 0, bonus: signupBonus }, purchasedItems: [], purchasedItemExpiries: {}, status: "Active", myReferralCode: myRef, avatar: "👦", notifOn: true, createdAt: new Date(), lastRankMonth: new Date().getMonth(), currentMonthWinnings: 0 });
+                
+                if(signupBonus > 0) { await db.collection("transactions").add({ userId: uid, type: "Signup Bonus", desc: "Welcome Bonus", amount: signupBonus, status: "Success", date: new Date() }); }
+                if(refCode) { const refSnap = await db.collection("users").where("myReferralCode", "==", refCode).get(); if(!refSnap.empty) { const referrer = refSnap.docs[0]; await db.collection("referrals").add({ referrerUid: referrer.id, referrerName: referrer.data().ffName, referrerEmail: referrer.data().email, refereeUid: uid, refereeName: ffName, refereeEmail: email, code: refCode, status: 'Pending', createdAt: new Date() }); } }
+            } catch (e) { 
+                let msg = "Signup Failed!";
+                if(e.code === 'auth/email-already-in-use') msg = "Email already in use by another account!";
+                else if(e.code === 'auth/weak-password') msg = "Password must be at least 6 characters!";
+                else if(e.code === 'auth/invalid-email') msg = "Invalid Email Address!";
+                showToast(msg, true); 
+            }
+            if(btn) { btn.innerText = "Sign Up"; btn.disabled = false; }
+        };
+
+        window.loginUser = async () => {
+            const btn = document.getElementById('loginBtn'); const email = document.getElementById('loginEmail').value.trim(); const pass = document.getElementById('loginPass').value;
+            if(!email || !pass) return showToast("Enter credentials!", true);
+            if(btn) { btn.innerText = "Loading..."; btn.disabled = true; }
+            try { 
+                await auth.signInWithEmailAndPassword(email, pass); 
+            } catch (e) { 
+                let msg = "Login Failed! Please check details.";
+                if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') msg = "Incorrect Password!";
+                else if(e.code === 'auth/user-not-found') msg = "User not found!";
+                else if(e.code === 'auth/invalid-email') msg = "Invalid Email format!";
+                showToast(msg, true); 
+            }
+            if(btn) { btn.innerText = "Login to Battle"; btn.disabled = false; }
+        };
+
+        function ownsItem(itemKey) { 
+            if(!window.userData.purchasedItems || !window.userData.purchasedItems.includes(itemKey)) return false; 
+            if(window.userData.purchasedItemExpiries && window.userData.purchasedItemExpiries[itemKey]) {
+                if(new Date() > new Date(window.userData.purchasedItemExpiries[itemKey])) return false;
+            }
+            return true;
+        }
+
+      function getUserRankTag(winnings) {
+            let rankName = "Bronze"; let imgUrl = "https://i.pinimg.com/564x/e0/47/c7/e047c738c42657bb2ea914e0d5e5d41b.jpg";
+            if(winnings >= 2000) { rankName = "Heroic"; imgUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQXesqfMewv1IC3fMwNZkfmoKv6oZH9Scrmq0E3JLmy9BH_QCEMY2WzAek&s=10"; }
+            else if(winnings >= 1000) { rankName = "Diamond"; imgUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR-8a4kJDjMh2v7JZ4jbKBSCBZCf9O2X43IDAEOB02fFtL0hGLWXZPlRk-H&s=10"; }
+            else if(winnings >= 500) { rankName = "Platinum"; imgUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRa32Ch0HMy6TNH-CruhD6mbEntFMjchVTOsmoeXDkCZQ&s=10"; }
+            else if(winnings >= 200) { rankName = "Gold"; imgUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNiV-EhPPF6tDqqYhh5tHEECs2d3aEmd29ji1KXL97oQ&s=10"; }
+            else if(winnings >= 100) { rankName = "Silver"; imgUrl = "https://ih1.redbubble.net/image.2201209319.9853/raf,360x360,075,t,fafafa:ca443f4786.u1.jpg"; }
+            
+            return { 
+                name: rankName, 
+                iconHtml: `<img src="${imgUrl}" alt="${rankName}" onerror="this.src='https://cdn-icons-png.flaticon.com/128/3113/3113054.png'" style="width:18px; height:18px; object-fit:contain; vertical-align:middle; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));">` 
+            };
+        }
+        
+        function getMyLevelRank() {
+            const joined = window.allTournaments ? window.allTournaments.filter(m => m.joinedUsers && m.joinedUsers.some(u => u.userDocId === window.currentUser.uid)) : [];
+            const played = joined.length; const level = Math.floor(played / 10) + 1;
+            const rank = getUserRankTag(window.userData?.currentMonthWinnings || 0);
+            return { level, rank: rank.name };
+        }
+
+        async function checkAndResetMonthlyRank(uid, data) {
+            const currentMonth = new Date().getMonth();
+            if(data.lastRankMonth !== currentMonth) {
+                await db.collection("users").doc(uid).update({ currentMonthWinnings: 0, lastRankMonth: currentMonth });
+                data.currentMonthWinnings = 0; data.lastRankMonth = currentMonth;
+            }
+        }
+
+        async function loadUserProfile(uid) {
+            try {
+                const s = await db.collection("users").doc(uid).get();
+                if(s.exists) {
+                    window.userData = s.data();
+                    if(window.userData.status === 'Blocked') { showToast("Account Blocked by Admin.", true); await auth.signOut(); return; }
+                    
+                    await checkAndResetMonthlyRank(uid, window.userData);
+
+                    let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+                    let canUseImage = isVip || ownsItem('avatar_upload');
+
+                    if (window.userData.avatar && window.userData.avatar.startsWith('http') && !canUseImage) {
+                        window.userData.avatar = '👦';
+                        db.collection("users").doc(uid).update({ avatar: '👦' }).catch(()=>{});
+                    }
+
+                    const win = window.userData.wallets?.winning || 0; const dep = window.userData.wallets?.deposit || 0; const bon = window.userData.wallets?.bonus || 0; const tot = win + dep + bon;
+                    setTxt('topWalletBal', tot); setTxt('wWin', win); setTxt('wDep', dep); setTxt('wBon', bon);
+                    setTxt('pEmail', window.userData.email); setTxt('pUid', uid.substring(0,8).toUpperCase()); 
+                    setTxt('referTabCode', window.userData.myReferralCode || "N/A"); 
+                    
+                    if(window.userData.avatar && window.userData.avatar.startsWith('http')) { setHtml('pAvatarIcon', `<img src="${window.userData.avatar}" style="width:100%;height:100%;object-fit:cover;">`); } 
+                    else { setHtml('pAvatarIcon', window.userData.avatar || "👦"); }
+                    
+                    const eInp = document.getElementById('editNameInput'); if(eInp) eInp.value = window.userData.ffName;
+                    window.notifsEnabled = window.userData.notifOn !== false; const nTog = document.getElementById('notifToggle'); if(nTog) nTog.checked = window.notifsEnabled; 
+                    calculateProfileStats();
+                } else { await auth.signOut(); }
+            } catch(e) {}
+        }
+
+        function calculateProfileStats() {
+            if(!window.currentUser || !window.allTournaments) return; const uid = window.currentUser.uid;
+            const joined = window.allTournaments.filter(m => m.joinedUsers && m.joinedUsers.some(u => u.userDocId === uid)); const played = joined.filter(m => m.status === 'Results').length; const won = (window.userData.wallets?.winning > 0 && played > 0) ? Math.ceil(played / 3) : 0; 
+            setTxt('statTotal', joined.length); setTxt('statPlayed', played); setTxt('statWon', won);
+
+            const monthlyWins = window.userData.currentMonthWinnings || 0; 
+            const rankInfo = getUserRankTag(monthlyWins);
+            const totalMatches = joined.length; const level = Math.floor(totalMatches / 10) + 1; const matchesNextLevel = level * 10; const progressPercent = (totalMatches % 10) * 10;
+            
+            setHtml('pRankTop', `${rankInfo.iconHtml} ${rankInfo.name}`);
+            setTxt('pLevelText', `Lv. ${level}`);
+            
+            setTxt('lvlProgressTextMod', `${totalMatches}/${matchesNextLevel} Matches`); document.getElementById('lvlProgressBarMod').style.width = `${progressPercent}%`;
+
+            const claimedLevels = window.userData.claimedLevels || [];
+            if(level > 1 && !claimedLevels.includes(level - 1)) { document.getElementById('lvlClaimBtnMod').style.display = 'block'; document.getElementById('lvlClaimBtnMod').onclick = () => claimLevelBonus(level - 1); } 
+            else { document.getElementById('lvlClaimBtnMod').style.display = 'none'; }
+
+            let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+            let hasCrown = isVip || ownsItem('gold_crown'); let hasTick = isVip || ownsItem('blue_tick');
+
+            const avatarDiv = document.getElementById('pAvatarIcon');
+            if(isVip || hasCrown) { avatarDiv.classList.add('vip-border'); document.getElementById('pCrownIcon').style.display = 'block'; }
+            else { avatarDiv.classList.remove('vip-border'); document.getElementById('pCrownIcon').style.display = 'none'; }
+            
+            if(hasTick) document.getElementById('pBlueTick').style.display = 'inline-flex'; else document.getElementById('pBlueTick').style.display = 'none';
+            setTxt('pName', window.userData.ffName);
+        }
+
+        window.claimLevelBonus = async (completedLevel) => {
+            try {
+                let reward = completedLevel * 5; 
+                const claimed = window.userData.claimedLevels || []; claimed.push(completedLevel);
+                await db.collection("users").doc(window.currentUser.uid).update({ "wallets.bonus": firebase.firestore.FieldValue.increment(reward), claimedLevels: claimed });
+                await db.collection("transactions").add({ userId: window.currentUser.uid, type: "Level Bonus", desc: `Reached Level ${completedLevel+1}`, amount: reward, status: "Success", date: new Date() });
+                showToast(`₹${reward} Level Bonus Claimed!`); closeModal('levelModal'); await loadUserProfile(window.currentUser.uid);
+            } catch(e) { showToast("Error claiming bonus", true); }
+        };
+
+        window.openVipLounge = () => {
+            const p = window.appSettings.pricing || {};
+            setTxt('priceWeekly', p.vipWeekly || 49); setTxt('priceMonthly', p.vipMonthly || 149);
+            setTxt('priceCrown', p.itemCrown || 20); setTxt('priceTick', p.itemTick || 20); setTxt('priceAvatar', p.itemAvatar || 15);
+
+            if(ownsItem('gold_crown')) document.getElementById('itemBox_gold_crown').classList.add('owned'); else document.getElementById('itemBox_gold_crown').classList.remove('owned');
+            if(ownsItem('blue_tick')) document.getElementById('itemBox_blue_tick').classList.add('owned'); else document.getElementById('itemBox_blue_tick').classList.remove('owned');
+            if(ownsItem('avatar_upload')) document.getElementById('itemBox_avatar_upload').classList.add('owned'); else document.getElementById('itemBox_avatar_upload').classList.remove('owned');
+
+            const vBox = document.getElementById('vipActiveBox'); const pBox = document.getElementById('vipPurchaseBox');
+            if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) {
+                vBox.style.display = 'block'; pBox.style.display = 'none'; setTxt('vipExpiryText', "Expires on: " + new Date(window.userData.vipExpiry).toLocaleDateString());
+            } else { vBox.style.display = 'none'; pBox.style.display = 'block'; }
+            switchVipTab(1); openModal('vipModal');
+        };
+
+        window.switchVipTab = (tab) => {
+            document.getElementById('vTab1Btn').classList.remove('active'); document.getElementById('vTab2Btn').classList.remove('active');
+            document.getElementById('vTab1Btn').style.background = 'transparent'; document.getElementById('vTab2Btn').style.background = 'transparent';
+            document.getElementById('vTab' + tab + 'Btn').classList.add('active');
+            document.getElementById('vTab' + tab + 'Btn').style.background = 'rgba(255,255,255,0.2)';
+            document.getElementById('vTab1').style.display = 'none'; document.getElementById('vTab2').style.display = 'none';
+            document.getElementById('vTab' + tab).style.display = 'block';
+        };
+
+        window.buyStoreItem = async (itemKey) => {
+            if(itemKey !== 'vip_weekly' && itemKey !== 'vip_monthly' && ownsItem(itemKey)) return showToast("You already own this item!", true);
+            
+            const p = window.appSettings.pricing || {};
+            let price = 0; let name = ""; let isVip = false;
+            if(itemKey === 'vip_weekly') { price = p.vipWeekly || 49; name = "Weekly VIP"; isVip = true; }
+            else if(itemKey === 'vip_monthly') { price = p.vipMonthly || 149; name = "Monthly VIP"; isVip = true; }
+            else if(itemKey === 'gold_crown') { price = p.itemCrown || 20; name = "Gold Crown"; }
+            else if(itemKey === 'blue_tick') { price = p.itemTick || 20; name = "Blue Tick"; }
+            else if(itemKey === 'avatar_upload') { price = p.itemAvatar || 15; name = "Avatar Upload"; }
+
+            const wWin = Number(window.userData.wallets?.winning || 0); const wDep = Number(window.userData.wallets?.deposit || 0);
+            if((wWin + wDep) < price) return showToast("Insufficient Wallet Balance!", true);
+            
+            if(confirm(`Buy ${name} for ₹${price}?`)) {
+                try {
+                    let newDep = wDep, newWin = wWin; let rem = price;
+                    if(newDep >= rem) { newDep -= rem; rem = 0; } else { rem -= newDep; newDep = 0; }
+                    if(rem > 0) newWin -= rem;
+                    
+                    let updates = { "wallets.deposit": newDep, "wallets.winning": newWin };
+                    if(isVip) {
+                        const days = itemKey === 'vip_weekly' ? 7 : 30; let exp = new Date(); exp.setDate(exp.getDate() + days);
+                        updates.vipExpiry = exp.toISOString();
+                    } else {
+                        let exp = new Date(); exp.setMonth(exp.getMonth() + 1);
+                        updates[`purchasedItemExpiries.${itemKey}`] = exp.toISOString();
+                        updates.purchasedItems = firebase.firestore.FieldValue.arrayUnion(itemKey);
+                    }
+
+                    await db.collection("users").doc(window.currentUser.uid).update(updates);
+                    await db.collection("transactions").add({ userId: window.currentUser.uid, type: "Store Purchase", desc: `Purchased ${name}`, amount: price, status: "Success", date: new Date() });
+                    showToast(`${name} Activated!`); closeModal('vipModal'); await loadUserProfile(window.currentUser.uid);
+                } catch(e) { showToast("Purchase Failed", true); }
+            }
+        };
+
+        window.openEmojiPicker = () => {
+            let h = ''; EMOJI_LIST.forEach(e => { h += `<div class="emoji-item" onclick="selectEmoji('${e}')">${e}</div>`; });
+            setHtml('emojiGridBox', h); openModal('emojiModal');
+        };
+
+        window.selectEmoji = async (emoji) => {
+            try { await db.collection("users").doc(window.currentUser.uid).update({ avatar: emoji }); if(window.userData) window.userData.avatar = emoji; setHtml('pAvatarIcon', emoji); showToast("Avatar Updated!"); closeModal('emojiModal'); } catch(e) {}
+        };
+
+        window.uploadAvatar = async () => {
+            let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+            if(!isVip && !ownsItem('avatar_upload')) { showToast("Avatar Upload is locked! Buy in Store.", true); closeModal('emojiModal'); openVipLounge(); return; }
+
+            const fileInp = document.getElementById('avatarFileInput'); const file = fileInp.files[0];
+            if(!file) return showToast("Select an image first!", true);
+            const btn = document.getElementById('avatarUploadBtn'); btn.innerText = "Uploading..."; btn.disabled = true;
+            try {
+                const formData = new FormData(); formData.append('image', file); const IMGBB_API_KEY = "" /* removed & rotated */;
+                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if(data.success) {
+                    const url = data.data.url; await db.collection("users").doc(window.currentUser.uid).update({ avatar: url });
+                    if(window.userData) window.userData.avatar = url; setHtml('pAvatarIcon', `<img src="${url}" style="width:100%;height:100%;object-fit:cover;">`); showToast("Profile Picture Updated!"); closeModal('emojiModal');
+                } else throw new Error();
+            } catch(e) { showToast("Upload Failed!", true); }
+            btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Upload`; btn.disabled = false;
+        };
+
+        window.openDirectMessage = () => {
+            let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+            if(!isVip) return showToast("Exclusive Feature for VIP Members Only!", true);
+            
+            openModal('dmModal'); const box = document.getElementById('dmMsgContainer'); if(dmChatUnsub) dmChatUnsub();
+            dmChatUnsub = db.collection("direct_messages").where("uid", "==", window.currentUser.uid).onSnapshot((snap) => {
+                let msgs = []; snap.forEach(d => msgs.push(d.data())); msgs.sort((a,b) => a.timestamp - b.timestamp);
+                let h = '';
+                msgs.forEach(c => {
+                    const isMe = c.senderType === 'user'; const cClass = isMe ? 'mine' : 'other';
+                    h += `<div class="chat-msg ${cClass}"><div class="sender">${c.senderName}</div><div>${c.text}</div></div>`;
+                });
+                setHtml('dmMsgContainer', h || `<div style="text-align:center; color:var(--text-sub); font-size:11px; margin-top:20px;">Send a direct message to Admin/Support.</div>`);
+                box.scrollTop = box.scrollHeight;
+            });
+        };
+        window.sendDmMessage = async () => {
+            const inp = document.getElementById('dmChatInput'); const txt = inp.value.trim(); if(!txt) return;
+            try { await db.collection("direct_messages").add({ uid: window.currentUser.uid, userEmail: window.userData.email, senderName: window.userData.ffName, senderType: 'user', text: txt, timestamp: new Date() }); inp.value = ''; } catch(e) {}
+        };
+
+        async function checkAirdrop() {
+            const btn = document.getElementById('floatingAirdrop');
+            if(window.userData.activeAirdrop) {
+                const expiresAt = new Date(window.userData.activeAirdrop.expiresAt);
+                if(new Date() < expiresAt) {
+                    try {
+                        const adSnap = await db.collection("airdrops").where("userId", "==", window.currentUser.uid).where("offerType", "==", window.userData.activeAirdrop.type).orderBy("createdAt", "desc").limit(1).get();
+                        if(!adSnap.empty) {
+                            const adStatus = adSnap.docs[0].data().status;
+                            if(adStatus === 'Pending') { btn.style.display = 'none'; return; } 
+                            if(adStatus === 'Success') {
+                                db.collection("users").doc(window.currentUser.uid).update({ activeAirdrop: firebase.firestore.FieldValue.delete(), lastAirdropClaimed: new Date().toISOString() });
+                                window.userData.activeAirdrop = null; btn.style.display = 'none'; return;
+                            }
+                        }
+                    } catch(e) {}
+                    
+                    startAirdropTimer(expiresAt); btn.style.display = 'flex'; return;
+                } else {
+                    db.collection("users").doc(window.currentUser.uid).update({ activeAirdrop: firebase.firestore.FieldValue.delete() }); window.userData.activeAirdrop = null;
+                }
+            }
+            btn.style.display = 'none';
+            const lastClaim = window.userData.lastAirdropClaimed ? new Date(window.userData.lastAirdropClaimed) : null; const now = new Date();
+            if(!lastClaim || (now.getTime() - lastClaim.getTime()) > (7 * 24 * 60 * 60 * 1000)) { generateAirdropOffer(); }
+        }
+
+        async function generateAirdropOffer() {
+            const rand = Math.random() * 100;
+            let offerType = ''; let title = ''; let desc = ''; let price = 0; let requirePay = false;
+            
+            if(rand < 20) { offerType = 'Deposit30'; title = 'Deposit Offer'; desc = 'Pay ₹30 and get ₹35 in Wallet!'; price = 30; requirePay = true; }
+            else if(rand < 30) { offerType = 'Deposit50'; title = 'Mega Deposit Offer'; desc = 'Pay ₹50 and get ₹60 in Wallet!'; price = 50; requirePay = true; }
+            else if(rand < 60) { 
+                const items = [];
+                if(!ownsItem('gold_crown')) items.push({key: 'CrownDiscount', title: 'Exclusive Crown (30% Off)', p: window.appSettings?.pricing?.itemCrown || 20});
+                if(!ownsItem('blue_tick')) items.push({key: 'TickDiscount', title: 'Verified Tick (30% Off)', p: window.appSettings?.pricing?.itemTick || 20});
+                if(!ownsItem('avatar_upload')) items.push({key: 'AvatarDiscount', title: 'Custom Avatar Unlock (30% Off)', p: window.appSettings?.pricing?.itemAvatar || 15});
+                
+                if(items.length > 0) {
+                    const sel = items[Math.floor(Math.random() * items.length)];
+                    offerType = sel.key; title = sel.title; desc = `Get 1 Month access for just ₹${Math.floor(sel.p*0.7)}`; price = Math.floor(sel.p*0.7); requirePay = true;
+                } else { offerType = 'FreeBonus'; title = 'Lucky Bonus'; desc = 'Claim ₹2 Free Bonus directly to wallet!'; requirePay = false; }
+            }
+            else if(rand < 80) { offerType = 'FreeBonus'; title = 'Lucky Bonus'; desc = 'Claim ₹2 Free Bonus directly to wallet!'; requirePay = false; }
+            else { offerType = 'TryNext'; title = 'Empty Drop'; desc = 'Better luck next time. Check again later.'; requirePay = false; }
+
+            const expiry = new Date(new Date().getTime() + (3 * 24 * 60 * 60 * 1000)); 
+            const newDrop = { type: offerType, title: title, desc: desc, price: price, requirePay: requirePay, expiresAt: expiry.toISOString() };
+            
+            try {
+                await db.collection("users").doc(window.currentUser.uid).update({ activeAirdrop: newDrop });
+                window.userData.activeAirdrop = newDrop; document.getElementById('floatingAirdrop').style.display = 'flex';
+                startAirdropTimer(expiry); setupAirdropModal(newDrop); openModal('airdropModal');
+            } catch(e) {}
+        }
+        
+        function setupAirdropModal(dropObj) {
+            setTxt('adOfferTitle', dropObj.title); setTxt('adOfferDesc', dropObj.desc); 
+            const pb = document.getElementById('adPaymentBox');
+            const cb = document.getElementById('adFreeClaimBox');
+
+            if(dropObj.requirePay) { 
+                pb.style.display = 'block'; if(cb) cb.style.display = 'none';
+                if(window.appSettings) { 
+                    setTxt('adUpiText', "UPI: " + (window.appSettings.upiId || "Not Set")); 
+                    const q = document.getElementById('adQrImg'); 
+                    if(q && window.appSettings.upiId) { 
+                        const upiUri = `upi://pay?pa=${window.appSettings.upiId}&pn=${encodeURIComponent(window.appSettings.appName||"App")}&am=${dropObj.price}&cu=INR`;
+                        q.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUri)}`;
+                        q.style.display = 'block'; 
+                    } 
+                }
+            } else { 
+                pb.style.display = 'none'; if(cb) cb.style.display = 'block';
+            }
+        }
+
+        function startAirdropTimer(expiresAt) {
+            if(adTimerInt) clearInterval(adTimerInt);
+            adTimerInt = setInterval(() => {
+                const diff = expiresAt - new Date();
+                if(diff <= 0) { 
+                    setTxt('airdropTimer', "EXPIRED"); setTxt('adFloatTimer', "EXPIRED"); document.getElementById('floatingAirdrop').style.display = 'none'; clearInterval(adTimerInt); 
+                    if(window.currentUser) db.collection("users").doc(window.currentUser.uid).update({ activeAirdrop: firebase.firestore.FieldValue.delete() });
+                } else {
+                    const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) + Math.floor(diff / (1000 * 60 * 60 * 24))*24; const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); const s = Math.floor((diff % (1000 * 60)) / 1000);
+                    const timeStr = `${h}h ${m}m ${s}s`; setTxt('airdropTimer', `Expires in: ${timeStr}`); setTxt('adFloatTimer', timeStr);
+                }
+            }, 1000);
+            if(window.userData.activeAirdrop) setupAirdropModal(window.userData.activeAirdrop);
+        }
+
+        window.submitAirdropPayment = async () => {
+            const drop = window.userData.activeAirdrop; if(!drop) return;
+            const fileInp = document.getElementById('adFileInput'); const file = fileInp ? fileInp.files[0] : null; 
+            const utr = document.getElementById('adUtrInput') ? document.getElementById('adUtrInput').value.trim() : "";
+            
+            if(!drop.price && drop.type === 'FreeBonus') {
+                await db.collection("users").doc(window.currentUser.uid).update({ "wallets.bonus": firebase.firestore.FieldValue.increment(2), activeAirdrop: firebase.firestore.FieldValue.delete(), lastAirdropClaimed: new Date().toISOString() });
+                await db.collection("transactions").add({ userId: window.currentUser.uid, type: "Airdrop", desc: "Lucky Free Bonus", amount: 2, status: "Success", date: new Date() });
+                showToast("₹2 Bonus Added!"); document.getElementById('floatingAirdrop').style.display = 'none'; clearInterval(adTimerInt); closeModal('airdropModal'); await loadUserProfile(window.currentUser.uid); return;
+            }
+            if(drop.type === 'TryNext') {
+                await db.collection("users").doc(window.currentUser.uid).update({ activeAirdrop: firebase.firestore.FieldValue.delete(), lastAirdropClaimed: new Date().toISOString() });
+                document.getElementById('floatingAirdrop').style.display = 'none'; clearInterval(adTimerInt); closeModal('airdropModal'); return;
+            }
+            
+            if(!file && !utr) return showToast("Provide Screenshot OR UTR number.", true);
+            const btn = document.getElementById('adSubmitBtn'); if(btn){ btn.innerText = "Verifying..."; btn.disabled = true; }
+            
+            try {
+                let proof = utr; let type = 'UTR'; 
+                if(file) { 
+                    const formData = new FormData(); formData.append('image', file); const IMGBB_API_KEY = "" /* removed & rotated */;
+                    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if(data.success) { proof = data.data.url; type = 'Screenshot'; } else { throw new Error("Image Upload Failed"); }
+                } 
+                await db.collection("airdrops").add({ userId: window.currentUser.uid, userEmail: window.userData.email, offerType: drop.type, amountPaid: drop.price, utr: proof, proofType: type, status: "Pending", createdAt: new Date() });
+                
+                showToast("Airdrop Request Sent to Admin!"); 
+                document.getElementById('floatingAirdrop').style.display = 'none'; 
+                closeModal('airdropModal');
+            } catch(e) { showToast("Error submitting request", true); }
+            if(btn){ btn.innerText = "Submit Details"; btn.disabled = false; }
+        };
+
+        window.saveNewName = async () => { const newName = document.getElementById('editNameInput').value.trim(); if(!newName) return showToast("Enter Name", true); try { await db.collection("users").doc(window.currentUser.uid).update({ ffName: newName }); setTxt('pName', newName); if(window.userData) window.userData.ffName = newName; showToast("Username Updated (Free)!"); closeModal('nameModal'); calculateProfileStats(); } catch(e) { showToast("Error", true); } };
+        
+        window.saveNewPassword = async () => { 
+            const newPass = document.getElementById('newPassInput').value; if(newPass.length < 6) return showToast("Password must be 6+ chars", true); 
+            const wDep = Number(window.userData.wallets?.deposit || 0); const wWin = Number(window.userData.wallets?.winning || 0);
+            if((wDep + wWin) < 10) return showToast("Insufficient balance for ₹10 fee", true);
+            
+            try { 
+                await window.currentUser.updatePassword(newPass); 
+                let newDep = wDep, newWin = wWin; let rem = 10;
+                if(newDep >= rem) { newDep -= rem; } else { rem -= newDep; newDep = 0; newWin -= rem; }
+                
+                await db.collection("users").doc(window.currentUser.uid).update({ "wallets.deposit": newDep, "wallets.winning": newWin });
+                await db.collection("transactions").add({ userId: window.currentUser.uid, type: "Password Change Fee", desc: "Security update", amount: 10, status: "Success", date: new Date() });
+                
+                showToast("Password Updated (₹10 deducted)!"); closeModal('passwordModal'); document.getElementById('newPassInput').value = ''; await loadUserProfile(window.currentUser.uid); await loadUserTransactions();
+            } catch(e) { showToast("Error: Please Logout and Login again to change password.", true); } 
+        };
+
+        window.toggleNotifications = async () => { const tg = document.getElementById('notifToggle'); if(!tg) return; const isChecked = tg.checked; window.notifsEnabled = isChecked; try { await db.collection("users").doc(window.currentUser.uid).update({ notifOn: isChecked }); showToast(isChecked ? "Notifications ON" : "Notifications OFF"); } catch(e) {} };
+        window.openPolicyModal = (type) => { setTxt('policyTitle', type); let content = "Policy not configured by admin yet."; if(window.appSettings) { if(type === 'Privacy Policy' && window.appSettings.privacyPolicy) content = window.appSettings.privacyPolicy; if(type === 'Fair Play Policy' && window.appSettings.fairPlayPolicy) content = window.appSettings.fairPlayPolicy; } if(content.startsWith("http")) { setHtml('policyContent', `<a href="${content}" target="_blank" style="color:var(--info);">Click here to view ${type}</a>`); } else { setTxt('policyContent', content); } openModal('policyModal'); };
+        
+        window.openDeveloperContact = () => { showToast("Connecting to Developer..."); setTimeout(() => { window.open("https://t.me/tnvboss", "_blank"); }, 1000); };
+
+        function renderSocials() { 
+            const h = document.getElementById('helpSocials');
+            if(h) {
+                if(!window.appSocials || Object.keys(window.appSocials).length === 0) { 
+                    h.innerHTML = "<div class='loader' style='padding:10px;'>No links configured.</div>"; 
+                } else {
+                    const d = window.appSocials; let html = ''; 
+                    
+                    // Smart URL Fixer for normal links
+                    const fixUrl = (url) => {
+                        if (!url) return '#';
+                        let trimmed = url.trim();
+                        return trimmed.startsWith('http') || trimmed.startsWith('intent:') ? trimmed : 'https://' + trimmed;
+                    };
+
+                    // Only Telegram specific intent fix (Since it is working perfectly)
+                    const getTgLink = (url) => {
+                        if(!url) return '#';
+                        let u = url.trim();
+                        let id = u.split('/').pop();
+                        if(id.includes('?')) id = id.split('?')[0];
+                        
+                        if(u.includes('joinchat/')) {
+                            return `intent://joinchat/${id}#Intent;scheme=tg;package=org.telegram.messenger;end`;
+                        } else if(u.includes('+')) {
+                            return `intent://join?invite=${id.replace('+','')}#Intent;scheme=tg;package=org.telegram.messenger;end`;
+                        } else {
+                            return `intent://resolve?domain=${id}#Intent;scheme=tg;package=org.telegram.messenger;end`;
+                        }
+                    };
+
+                    // WhatsApp ki patha normal link eh isthunnam (error raakunda)
+                    if(d.whatsapp) html += `<a href="${fixUrl(d.whatsapp)}" target="_blank" class="social-icon wa" style="text-decoration:none;"><i class="fa-brands fa-whatsapp"></i></a>`; 
+                    
+                    if(d.instagram) html += `<a href="${fixUrl(d.instagram)}" target="_blank" class="social-icon ig" style="text-decoration:none;"><i class="fa-brands fa-instagram"></i></a>`; 
+                    if(d.discord) html += `<a href="${fixUrl(d.discord)}" target="_blank" class="social-icon dc" style="text-decoration:none;"><i class="fa-brands fa-discord"></i></a>`; 
+                    
+                    // Telegram ki intent fix apply avuthundi
+                    if(d.telegram) html += `<a href="${getTgLink(d.telegram)}" class="social-icon tg" style="text-decoration:none;"><i class="fa-brands fa-telegram"></i></a>`; 
+                    
+                    if(d.youtube) html += `<a href="${fixUrl(d.youtube)}" target="_blank" class="social-icon yt" style="text-decoration:none;"><i class="fa-brands fa-youtube"></i></a>`; 
+                    
+                    h.innerHTML = html; 
+                }
+            }
+        }
+
+        async function loadHomeData() {
+            try { 
+                const bSnap = await db.collection("admin_banners").get(); 
+                let bHtml = ''; let helpBHtml = '';
+                bSnap.forEach(d => { 
+                    const x = d.data(); const c = x.link ? `onclick="window.open('${x.link}', '_blank')"` : ''; 
+                    bHtml += `<div class="banner-card" style="background-image: url('${x.url}')" ${c}></div>`; 
+                    helpBHtml += `<img src="${x.url}" style="width:100%; border-radius:12px; aspect-ratio:16/9; object-fit:cover; border:1px solid var(--border-color); cursor:pointer;" ${c}>`;
+                }); 
+                setHtml('userBanners', bHtml || '<div style="color:var(--text-sub);">No banners</div>'); 
+                setHtml('helpBanners', helpBHtml || '<div style="color:var(--text-sub); padding:0 20px;">No promotions available</div>');
+
+                if(window.bannerInterval) clearInterval(window.bannerInterval);
+                window.bannerInterval = setInterval(() => {
+                    const container = document.getElementById('userBanners');
+                    if(!container) return; const card = container.querySelector('.banner-card'); if(!card) return;
+                    const scrollAmt = card.offsetWidth + 15;
+                    if(container.scrollLeft + container.clientWidth >= container.scrollWidth - 10) { container.scrollTo({left: 0, behavior: 'smooth'}); } else { container.scrollBy({left: scrollAmt, behavior: 'smooth'}); }
+                }, 3000);
+
+            } catch(e){}
+            
+            try { const gSnap = await db.collection("admin_games").get(); let gHtml = ''; gSnap.forEach(d => { const x = d.data(); gHtml += `<div class="game-card" onclick="openCategory('${x.name}')"><div class="game-img" style="background-image: url('${x.url}')"></div><div class="game-name">${x.name}</div></div>`; }); setHtml('userGames', gHtml || '<div style="color:var(--text-sub); grid-column:span 2;">No games</div>'); } catch(e){}
+            try { const tSnap = await db.collection("tournaments").get(); window.allTournaments = []; tSnap.forEach(d => { window.allTournaments.push({ id: d.id, ...d.data() }); }); filterMyMatches('Upcoming', document.querySelector('.match-tabs .tab-btn.active')); calculateProfileStats(); } catch(e) {}
+        }
+
+        window.filterMyMatches = (status, btn) => {
+            document.querySelectorAll('.match-tabs .tab-btn').forEach(b => b.classList.remove('active')); if(btn) btn.classList.add('active'); 
+            const myMatches = window.allTournaments.filter(m => m.status === status && m.joinedUsers && m.joinedUsers.some(u => u.userDocId === window.currentUser.uid)); let h = '';
+            myMatches.forEach(m => { 
+                const isResult = status === 'Results'; const btnText = isResult ? 'VIEW WINNINGS' : 'VIEW DETAILS'; 
+                const sTxt = m.serial ? ` <span style="font-size:10px; color:var(--warning);">[#${m.serial}]</span>` : '';
+                h += `<div class="match-card"><div class="match-header"><div class="match-title">${m.name}${sTxt} <span style="font-size:10px; color:var(--text-sub);">(${m.type})</span></div><div class="match-time">${new Date(m.time).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</div></div><div class="match-stats"><div class="stat-box"><div class="stat-val" style="color:var(--warning);">₹${m.pool}</div><div class="stat-lbl">Prize Pool</div></div><div class="stat-box"><div class="stat-val" style="color:var(--success);">₹${m.perKill || 0}</div><div class="stat-lbl">Per Kill</div></div></div><div class="match-footer" style="justify-content: ${isResult ? 'center' : 'space-between'};">${isResult ? '' : `<div class="spots-text"><span style="color:var(--success)">JOINED</span></div>`}<button class="btn-join" style="background:var(--text-sub);" onclick="openMatchDetails('${m.id}')">${btnText}</button></div></div>`; 
+            });
+            setHtml('myMatchesContainer', h || `<div style="text-align:center; color:var(--text-sub); padding:20px; font-size:12px;">No ${status} matches joined.</div>`);
+        };
+
+        window.openCategory = (catName) => {
+            setTxt('catScreenTitle', catName);
+            const catMatches = window.allTournaments.filter(m => m.category === catName && m.status !== 'Results' && m.status !== 'Cancelled'); let h = '';
+            catMatches.forEach(m => { 
+                const spotsLeft = m.max - (m.joinedUsers ? m.joinedUsers.length : 0); 
+                const progressPercent = m.joinedUsers ? (m.joinedUsers.length / m.max) * 100 : 0; 
+                const isJoined = m.joinedUsers ? m.joinedUsers.some(u => u.userDocId === window.currentUser.uid) : false; 
+                
+                let btnText = 'JOIN NOW'; let btnBg = 'var(--primary)';
+                if (isJoined) { btnText = 'VIEW DETAILS'; btnBg = 'var(--text-sub)'; } else if (spotsLeft <= 0) { btnText = 'FULL'; btnBg = 'var(--primary-red)'; }
+
+                const sTxt = m.serial ? ` <span style="font-size:10px; color:var(--warning);">[#${m.serial}]</span>` : '';
+                let vipTag = m.isVipOnly ? `<span style="font-size:10px; color:var(--vip-gold); font-weight:bold; margin-left:5px;"><i class="fa-solid fa-crown"></i> VIP</span>` : '';
+
+                h += `<div class="match-card"><div class="match-header"><div class="match-title">${m.name}${sTxt} ${vipTag} <span style="font-size:10px; color:var(--text-sub);">(${m.type})</span></div><div class="match-time">${new Date(m.time).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</div></div><div class="match-stats"><div class="stat-box"><div class="stat-val" style="color:var(--warning);">₹${m.pool}</div><div class="stat-lbl">Prize Pool</div></div><div class="stat-box"><div class="stat-val" style="color:var(--success);">₹${m.perKill || 0}</div><div class="stat-lbl">Per Kill</div></div><div class="stat-box"><div class="stat-val">₹${m.fee}</div><div class="stat-lbl">Entry Fee</div></div></div><div class="match-footer"><div><div class="spots-text"><span style="color:${spotsLeft>0?'var(--success)':'var(--primary-red)'}">${spotsLeft > 0 ? spotsLeft : 0}</span> spots left</div><div class="progress-container"><div class="progress-fill" style="width: ${progressPercent}%;"></div></div></div><button class="btn-join" style="background:${btnBg};" onclick="openMatchDetails('${m.id}')">${btnText}</button></div></div>`; 
+            });
+            setHtml('catMatchesContainer', h || `<div style="text-align:center; color:var(--text-sub); padding:40px; font-size:14px;">No upcoming matches here.</div>`); 
+            const catScreen = document.getElementById('categoryMatchesScreen'); if(catScreen) catScreen.style.display = 'block';
+        };
+        window.closeCategoryScreen = () => { const el = document.getElementById('categoryMatchesScreen'); if(el) el.style.display = 'none'; };
+
+        window.switchMatchModalTab = (tab) => { const m = window.selectedMatch; if(tab === 'Chat' && m) { const isJoined = m.joinedUsers ? m.joinedUsers.some(u => u.userDocId === window.currentUser.uid) : false; if(!isJoined) return showToast("Only players who joined can access Chat!", true); } ['Details', 'Players', 'Rules', 'Chat'].forEach(t => { const tb = document.getElementById(`mTab${t}Btn`); if(tb) tb.classList.remove('active'); const td = document.getElementById(`mTab${t}`); if(td) td.style.display = 'none'; }); const ab = document.getElementById(`mTab${tab}Btn`); if(ab) ab.classList.add('active'); const ad = document.getElementById(`mTab${tab}`); if(ad) ad.style.display = tab === 'Chat' ? 'flex' : 'block'; if(tab === 'Chat') loadMatchChat(m.id); };
+
+        window.openMatchDetails = (mId) => {
+            const m = window.allTournaments.find(x => x.id === mId); if(!m) return; 
+            window.selectedMatch = m; window.selectedSlots = []; 
+            setHtml('dynamicPlayerInputs', ''); setTxt('mBtnFee', '0'); setTxt('joinErrorMsg', ""); 
+            
+            ['Details', 'Players', 'Rules', 'Chat'].forEach(t => { const tBtn = document.getElementById(`mTab${t}Btn`); if(tBtn) tBtn.classList.remove('active'); const tDiv = document.getElementById(`mTab${t}`); if(tDiv) tDiv.style.display = 'none'; }); 
+            const mdBtn = document.getElementById('mTabDetailsBtn'); if(mdBtn) mdBtn.classList.add('active'); 
+            const mdDiv = document.getElementById('mTabDetails'); if(mdDiv) mdDiv.style.display = 'block';
+            
+            const sTxt = m.serial ? ` [#${m.serial}]` : '';
+            setTxt('mModalName', m.name + sTxt); 
+            setTxt('mModalTime', new Date(m.time).toLocaleString()); setTxt('mModalFee', "₹" + m.fee); setTxt('mModalPool', "₹" + m.pool); setTxt('mModalKill', "₹" + (m.perKill || 0)); setTxt('mModalType', `${m.map} | ${m.type}`); setTxt('mModalRules', m.rules || "No specific rules provided by Admin."); 
+            const bannerDiv = document.getElementById('mModalBanner'); if(bannerDiv) bannerDiv.style.backgroundImage = m.banner ? `url('${m.banner}')` : "none";
+            
+            let isJoined = false; let mySlotsStr = ""; 
+            if(m.joinedUsers) { 
+                const myEntries = m.joinedUsers.filter(u => u.userDocId === window.currentUser.uid);
+                if(myEntries.length > 0) { isJoined = true; mySlotsStr = myEntries.map(u => u.slot).join(', '); } 
+            }
+            
+            let pHtml = '';
+            if(m.joinedUsers && m.joinedUsers.length > 0) {
+                m.joinedUsers.forEach((u, i) => {
+                    let vHtml = u.vip ? `<i class="fa-solid fa-crown" style="color:var(--vip-gold); font-size:10px; margin-left:5px;"></i>` : (u.crown ? `<i class="fa-solid fa-crown" style="color:var(--vip-gold); font-size:10px; margin-left:5px;"></i>` : '');
+                    if(u.tick) vHtml += ` <span class="insta-tick" style="transform: scale(0.7); margin-left:2px;"></span>`;
+                    let rHtml = u.level ? ` <span style="font-size:9px; background:rgba(0,0,0,0.1); padding:2px 4px; border-radius:4px; margin-left:5px;">Lv.${u.level} | ${u.rank}</span>` : '';
+                    let avatarHtml = u.avatar && u.avatar.startsWith('http') ? `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : (u.avatar||'👦');
+
+                    pHtml += `<div style="padding:10px 15px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:10px;">
+                                <div style="background:rgba(0,0,0,0.05); width:25px; height:25px; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:10px; font-weight:bold;">${u.slot||i+1}</div>
+                                <div style="width:30px; height:30px; font-size:18px; display:flex; justify-content:center; align-items:center;">${avatarHtml}</div>
+                                <div style="font-size:13px; font-weight:600; color:var(--text-main); display:flex; align-items:center;">${u.ffName}${vHtml}${rHtml}</div>
+                              </div>`;
+                });
+            } else { pHtml = '<div style="padding:30px; text-align:center; color:var(--text-sub); font-size:12px;">No players joined yet.</div>'; }
+            setHtml('mTabPlayers', pHtml);
+            
+            const joinSec = document.getElementById('mModalJoinSection'); const roomSec = document.getElementById('mModalRoomSection'); const chatBtn = document.getElementById('mTabChatBtn'); const cdEl = document.getElementById('mModalCountdown');
+
+            if(countdownInterval) clearInterval(countdownInterval);
+            if(m.status === 'Upcoming') { if(cdEl) cdEl.style.display = 'block'; const mTime = new Date(m.time).getTime(); countdownInterval = setInterval(() => { const now = new Date().getTime(); const distance = mTime - now; if(distance < 0) { if(cdEl) cdEl.innerText = "Match Started!"; clearInterval(countdownInterval); } else { const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); const min = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)); const sec = Math.floor((distance % (1000 * 60)) / 1000); if(cdEl) cdEl.innerText = `Starts in: ${h}h ${min}m ${sec}s`; } }, 1000); } else { if(cdEl) cdEl.style.display = 'none'; }
+
+            let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+            let hasAccess = true; if(m.isVipOnly && !isVip) { hasAccess = false; }
+
+            if(m.status === 'Upcoming' && !isJoined) { 
+                const spotsLeft = m.max - (m.joinedUsers ? m.joinedUsers.length : 0);
+                if(spotsLeft <= 0 || !hasAccess) {
+                    if(joinSec) joinSec.style.display = 'none'; 
+                    if(roomSec) { roomSec.style.display = 'block'; roomSec.innerHTML = !hasAccess ? `<div style="font-weight:bold; color:var(--vip-gold); font-size:14px;"><i class="fa-solid fa-crown"></i> VIP ONLY MATCH</div>` : `<div style="font-weight:bold; color:var(--primary-red); font-size:16px;">MATCH IS FULL</div>`; }
+                    if(chatBtn) chatBtn.style.display = 'none'; 
+                } else {
+                    if(joinSec) joinSec.style.display = 'block'; 
+                    if(roomSec) roomSec.style.display = 'none'; 
+                    if(chatBtn) chatBtn.style.display = 'block'; 
+                    const lk = document.getElementById('chatLockIcon'); if(lk) lk.style.display = 'inline-block'; 
+                    
+                    let sHtml = ''; 
+                    for(let i=1; i<=m.max; i++) { const isTaken = m.joinedUsers ? m.joinedUsers.some(u => Number(u.slot) === i) : false; sHtml += `<div class="slot-btn ${isTaken?'booked':''}" onclick="selectSlot(${i}, this)">${i}</div>`; } 
+                    setHtml('mSlotGrid', sHtml);
+                }
+            } else { 
+                if(joinSec) joinSec.style.display = 'none'; 
+                if(isJoined) { 
+                    if(chatBtn) chatBtn.style.display = 'block'; 
+                    const lk = document.getElementById('chatLockIcon'); if(lk) lk.style.display = 'none'; 
+                    if(roomSec) roomSec.style.display = 'block'; 
+                    if(m.publishRoom && m.roomId) { 
+                        setHtml('mShowRoomId', `ID: ${m.roomId} <i class="fa-solid fa-copy" style="cursor:pointer; color:var(--text-main);" onclick="copyToClipboard('${m.roomId}')"></i>`); 
+                        setHtml('mShowRoomPass', `Pass: ${m.roomPass} <i class="fa-solid fa-copy" style="cursor:pointer; color:var(--text-main);" onclick="copyToClipboard('${m.roomPass}')"></i>`); 
+                    } else { 
+                        setTxt('mShowRoomId', `You joined Slot(s) #${mySlotsStr}`); 
+                        setTxt('mShowRoomPass', "ID & Pass will be updated here."); 
+                    } 
+                } else { 
+                    if(chatBtn) chatBtn.style.display = 'none'; 
+                    if(roomSec) roomSec.style.display = 'none'; 
+                } 
+                if(m.status === 'Results') { 
+                    if(roomSec) roomSec.style.display = 'block'; 
+                    setTxt('mShowRoomId', "Match Finished!"); 
+                    setTxt('mShowRoomPass', "Check your Winning Wallet for prizes."); 
+                } 
+            }
+            openModal('matchModal');
+        };
+
+        window.selectSlot = (num, el) => { 
+            if(el.classList.contains('booked')) return; 
+            
+            const matchType = window.selectedMatch ? window.selectedMatch.type : 'Solo';
+            let limit = 1;
+            if (matchType === 'Duo') limit = 2;
+            else if (matchType === 'Squad') limit = 4;
+
+            if(window.selectedSlots.includes(num)) { 
+                window.selectedSlots = window.selectedSlots.filter(s => s !== num); 
+                el.classList.remove('selected'); 
+            } else { 
+                if(window.selectedSlots.length >= limit) {
+                    return showToast(`You can only select ${limit} slot(s) for ${matchType} match!`, true);
+                }
+                window.selectedSlots.push(num); 
+                el.classList.add('selected'); 
+            }
+            renderPlayerInputs();
+        };
+
+        window.renderPlayerInputs = () => {
+            const fee = window.selectedMatch ? Number(window.selectedMatch.fee) : 0; let html = '';
+            let actualFee = fee;
+            const totalFee = actualFee * window.selectedSlots.length;
+            const maxBonusUse = totalFee * 1.0; 
+            
+            if(window.selectedSlots.length > 0) { html += `<div style="font-size: 11px; font-weight: bold; margin-bottom: 10px; color: var(--text-sub);">Enter Details for Selected Slots</div>`; }
+            window.selectedSlots.sort((a,b)=>a-b).forEach(slot => { html += `<div style="background: rgba(0,0,0,0.03); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-size: 11px; font-weight: bold; margin-bottom: 8px; color: var(--success);">Slot ${slot} Player Details</div><input type="text" id="mJoinFfName_${slot}" class="auth-input" placeholder="Exact Free Fire Name (Slot ${slot})" style="padding: 10px; margin-bottom: 8px; width: 100%;"><input type="number" id="mJoinFfUid_${slot}" class="auth-input" placeholder="Free Fire UID (Slot ${slot})" style="padding: 10px; width: 100%;"></div>`; });
+            
+            let bonusNote = `<div style="font-size:9px; color:var(--warning); text-align:center; margin-top:5px;">(100% i.e., ₹${maxBonusUse} can be used from Bonus Wallet)</div>`;
+            setHtml('dynamicPlayerInputs', html + (window.selectedSlots.length > 0 ? bonusNote : '')); 
+            setTxt('mBtnFee', totalFee);
+        };
+
+        window.confirmJoinMatch = async () => {
+            const m = window.selectedMatch; 
+            if(window.selectedSlots.length === 0) { setTxt('joinErrorMsg', "Error: Please select at least one slot."); return; }
+
+            let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+            let cwn = ownsItem('gold_crown'); let tk = ownsItem('blue_tick');
+            const lr = getMyLevelRank();
+
+            const newPlayers = [];
+            for (let slot of window.selectedSlots) {
+                const fNameInp = document.getElementById(`mJoinFfName_${slot}`); const fUidInp = document.getElementById(`mJoinFfUid_${slot}`);
+                const fName = fNameInp ? fNameInp.value.trim() : ""; const fUid = fUidInp ? fUidInp.value.trim() : "";
+                if(!fName || !fUid) { setTxt('joinErrorMsg', `Error: Fill Name and UID for Slot ${slot}.`); return; }
+                newPlayers.push({ userDocId: window.currentUser.uid, ffName: fName, ffUid: fUid, slot: slot, avatar: window.userData.avatar||'👦', joinedAt: new Date().toISOString(), vip: isVip, crown: cwn, tick: tk, level: lr.level, rank: lr.rank });
+            }
+
+            let actualFee = Number(m.fee);
+            const totalFee = actualFee * window.selectedSlots.length;
+            const wWin = Number(window.userData.wallets?.winning || 0); const wDep = Number(window.userData.wallets?.deposit || 0); const wBon = Number(window.userData.wallets?.bonus || 0);
+
+            const maxBonusAllowed = totalFee * 1.0;
+            const bonusToUse = Math.min(wBon, maxBonusAllowed);
+            const remainingFee = totalFee - bonusToUse;
+
+            if((wWin + wDep) < remainingFee) { setTxt('joinErrorMsg', `Error: Insufficient Balance. You need at least ₹${remainingFee} in Deposit/Winning wallets.`); setTimeout(() => { closeModal('matchModal'); closeCategoryScreen(); switchTab('Wallet', document.querySelectorAll('.bottom-nav .nav-item')[1]); }, 3500); return; }
+            
+            const btn = document.getElementById('mJoinBtn'); if(btn) { btn.innerText = "Joining..."; btn.disabled = true; } setTxt('joinErrorMsg', "");
+            
+            try {
+                let newDep = wDep, newWin = wWin, newBon = wBon - bonusToUse; let remFee = remainingFee;
+                if(newDep >= remFee) { newDep -= remFee; remFee = 0; } else { remFee -= newDep; newDep = 0; }
+                if(remFee > 0 && newWin >= remFee) { newWin -= remFee; remFee = 0; } else if (remFee > 0) { remFee -= newWin; newWin = 0; }
+                
+                await db.collection("users").doc(window.currentUser.uid).update({ "wallets.deposit": newDep, "wallets.winning": newWin, "wallets.bonus": newBon });
+                const updatedUsers = m.joinedUsers ? [...m.joinedUsers, ...newPlayers] : [...newPlayers];
+                await db.collection("tournaments").doc(m.id).update({ joinedUsers: updatedUsers });
+                
+                const sTxt = m.serial ? ` [#${m.serial}]` : '';
+                const descText = window.selectedSlots.length > 1 ? `Joined ${m.name}${sTxt} (${window.selectedSlots.length} Slots)` : `Joined ${m.name}${sTxt} (Slot ${window.selectedSlots[0]})`;
+                await db.collection("transactions").add({ userId: window.currentUser.uid, type: "Match Entry", desc: descText, amount: totalFee, status: "Success", date: new Date() });
+                
+                try {
+                    const refSnap = await db.collection("referrals").where("refereeUid", "==", window.currentUser.uid).where("status", "==", "Pending").get();
+                    if(!refSnap.empty) {
+                        const refDoc = refSnap.docs[0];
+                        await db.collection("referrals").doc(refDoc.id).update({status: "Approved"});
+                        const referrerId = refDoc.data().referrerUid; const bAmt = window.appSettings?.referralBonus || 0;
+                        if(bAmt > 0) {
+                            await db.collection("users").doc(referrerId).update({"wallets.bonus": firebase.firestore.FieldValue.increment(bAmt)});
+                            await db.collection("transactions").add({ userId: referrerId, type: "Referral Bonus", desc: `Referred ${window.userData.ffName} (Played 1st Match)`, amount: bAmt, status: "Success", date: new Date() });
+                        }
+                    }
+                } catch(e) { console.log("Ref logic skipped"); }
+
+                showToast("Successfully Joined!"); closeModal('matchModal'); await loadUserProfile(window.currentUser.uid); await loadHomeData(); await loadUserTransactions(); 
+                const cs = document.getElementById('categoryMatchesScreen'); const ct = document.getElementById('catScreenTitle');
+                if(cs && cs.style.display === 'block' && ct) { openCategory(ct.innerText); }
+            } catch(e) { setTxt('joinErrorMsg', "Network Error! Failed to join."); }
+            if(btn) { btn.innerText = `Confirm Join (₹${totalFee})`; btn.disabled = false; }
+        };
+
+        function loadMatchChat(matchId) { const container = document.getElementById('chatMsgContainer'); if(chatUnsubscribe) chatUnsubscribe(); chatUnsubscribe = db.collection("tournaments").doc(matchId).collection("chat").orderBy("timestamp", "asc").onSnapshot((snap) => { let h = ''; snap.forEach(d => { const c = d.data(); const isMe = c.uid === window.currentUser.uid; const cClass = isMe ? 'mine' : 'other'; let vHtml = c.vip ? `<i class="fa-solid fa-crown" style="color:var(--vip-gold); font-size:10px; margin-left:3px;"></i>` : (c.crown ? `<i class="fa-solid fa-crown" style="color:var(--vip-gold); font-size:10px; margin-left:3px;"></i>` : ''); if(c.tick) vHtml += ` <span class="insta-tick" style="transform: scale(0.6); margin-left:2px;"></span>`; let rHtml = c.level ? ` <span style="font-size:8px; background:rgba(0,0,0,0.1); padding:1px 3px; border-radius:3px;">Lv.${c.level} | ${c.rank}</span>` : ''; let avatarHtml = c.avatar && c.avatar.startsWith('http') ? `<img src="${c.avatar}" style="width:20px;height:20px;object-fit:cover;border-radius:50%;margin-right:5px;">` : `<span style="font-size:16px; margin-right:5px;">${c.avatar||'👦'}</span>`; h += `<div class="chat-msg ${cClass}"><div class="sender">${avatarHtml} ${c.name}${vHtml}${rHtml}</div><div>${c.text}</div></div>`; }); setHtml('chatMsgContainer', h || `<div style="text-align:center; color:var(--text-sub); font-size:11px; margin-top:20px;">Welcome to match chat! Say Hi.</div>`); if(container) container.scrollTop = container.scrollHeight; }); }
+        
+        window.sendChatMessage = async () => { 
+            const input = document.getElementById('chatInput'); if(!input) return; const text = input.value.trim(); if(!text || !window.selectedMatch) return; 
+            let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+            const lr = getMyLevelRank();
+            try { await db.collection("tournaments").doc(window.selectedMatch.id).collection("chat").add({ uid: window.currentUser.uid, name: window.userData?.ffName || 'Player', text: text, avatar: window.userData?.avatar || '👦', vip: isVip, crown: ownsItem('gold_crown'), tick: ownsItem('blue_tick'), level: lr.level, rank: lr.rank, timestamp: new Date() }); input.value = ''; } catch(e) {} 
+        };
+
+        window.openGlobalChat = () => {
+            openModal('globalChatModal');
+            const box = document.getElementById('globalChatMsgContainer');
+            if(gChatUnsub) gChatUnsub();
+            gChatUnsub = db.collection("global_chat").orderBy("timestamp", "asc").onSnapshot((snap) => {
+                let h = '';
+                snap.forEach(d => {
+                    const c = d.data();
+                    let icon = ''; let sName = c.senderName || 'User'; let cClass = 'other';
+                    
+                    if(c.senderType === 'admin') { icon = '🌐 '; cClass = 'other'; sName = 'ADMIN'; }
+                    else if(c.senderType === 'staff') { icon = '🎧 '; cClass = 'other'; }
+                    else if(window.currentUser && c.uid === window.currentUser.uid) { cClass = 'mine'; }
+                    
+                    let vipHtml = '';
+                    if(c.isVip || c.hasCrown) vipHtml += ` <i class="fa-solid fa-crown" style="color:var(--vip-gold); font-size:10px;"></i>`;
+                    if(c.hasTick || c.isVip) vipHtml += ` <span class="insta-tick" style="transform: scale(0.6); margin-left:2px;"></span>`;
+                    
+                    let rankHtml = c.level ? ` <span style="font-size:8px; border:1px solid var(--warning); padding:1px 3px; border-radius:3px; background:var(--text-main); color:white; margin-left:5px;">Lv.${c.level} | ${c.rank}</span>` : '';
+                    let avatarHtml = c.avatar && c.avatar.startsWith('http') ? `<img src="${c.avatar}" style="width:20px;height:20px;object-fit:cover;border-radius:50%;margin-right:5px;">` : `<span style="font-size:16px; margin-right:5px;">${c.avatar||'👦'}</span>`;
+                    if(c.senderType === 'admin' || c.senderType === 'staff') avatarHtml = '';
+
+                    h += `<div class="chat-msg ${cClass}"><div class="sender" style="display:flex; align-items:center;">${icon}${avatarHtml}${sName}${vipHtml}${rankHtml}</div><div>${c.text}</div></div>`;
+                });
+                setHtml('globalChatMsgContainer', h || `<div style="text-align:center; color:var(--text-sub); font-size:11px; margin-top:20px;">Welcome to Global Chat!</div>`);
+                box.scrollTop = box.scrollHeight;
+            });
+        };
+
+        window.sendToGlobalChat = async () => {
+            const inp = document.getElementById('gChatInput'); const txt = inp.value.trim();
+            if(!txt) return;
+            
+            let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+            
+            if(!isVip) {
+                const now = Date.now();
+                if(now - window.lastChatTime < 10000) { return showToast("Please wait 10 seconds before sending another message.", true); }
+                window.lastChatTime = now;
+            }
+
+            const senderName = (window.userData && window.userData.ffName) ? window.userData.ffName : 'Player';
+            const lr = getMyLevelRank();
+            try { await db.collection("global_chat").add({ uid: window.currentUser.uid, senderName: senderName, senderType: 'user', avatar: window.userData?.avatar || '👦', isVip: isVip, hasCrown: ownsItem('gold_crown'), hasTick: ownsItem('blue_tick'), rank: lr.rank, level: lr.level, text: txt, timestamp: new Date() }); inp.value = ''; } catch(e) { showToast("Failed to send", true); }
+        };
+
+        async function loadLeaderboard() { 
+            try { 
+                const snap = await db.collection("users").orderBy("wallets.winning", "desc").limit(10).get(); let h = ''; let rank = 1; 
+                snap.forEach(d => { 
+                    const x = d.data(); 
+                    const userRankTag = getUserRankTag(x.currentMonthWinnings || 0); 
+                    
+                    let isVip = false; if(x.vipExpiry && new Date() < new Date(x.vipExpiry)) isVip = true;
+                    let cwn = false; let tk = false;
+                    if(x.purchasedItems && x.purchasedItemExpiries) {
+                        if(x.purchasedItems.includes('gold_crown') && new Date() < new Date(x.purchasedItemExpiries['gold_crown'])) cwn = true;
+                        if(x.purchasedItems.includes('blue_tick') && new Date() < new Date(x.purchasedItemExpiries['blue_tick'])) tk = true;
+                    }
+                    
+                    let vHtml = isVip ? `<i class="fa-solid fa-crown" style="color:var(--vip-gold); font-size:12px; margin-left:5px;"></i>` : (cwn ? `<i class="fa-solid fa-crown" style="color:var(--vip-gold); font-size:12px; margin-left:5px;"></i>` : '');
+                    if(tk || isVip) vHtml += ` <span class="insta-tick" style="transform: scale(0.8); margin-left:2px;"></span>`;
+
+                    let avatarHtml = x.avatar && x.avatar.startsWith('http') ? `<img src="${x.avatar}" style="width:35px;height:35px;object-fit:cover;border-radius:50%; ${isVip || cwn ? 'border:2px solid var(--vip-gold); box-shadow:0 0 5px var(--vip-gold);' : ''}">` : `<div style="width:35px; height:35px; display:flex; justify-content:center; align-items:center; font-size:24px; ${isVip || cwn ? 'border:2px solid var(--vip-gold); border-radius:50%; box-shadow:0 0 5px var(--vip-gold);' : ''}">${x.avatar||'👦'}</div>`;
+
+                    h += `<div class="bal-row" style="align-items:center; padding:15px 20px;"><div style="display:flex; gap:15px; align-items:center;"><div style="font-size:16px; font-weight:900; color:var(--text-sub); width:20px; text-align:center;">${rank}</div>${avatarHtml}<div><div style="font-weight:bold; font-size:14px; color:var(--text-main); display:flex; align-items:center;">${x.ffName || 'Player'} ${vHtml}</div><div style="font-size:10px; color:var(--text-sub); display:flex; align-items:center; gap:3px;">${userRankTag.iconHtml} ${userRankTag.name} | Lv.${Math.floor(((x.claimedLevels?x.claimedLevels.length*10:0)+0)/10)+1}</div></div></div><div style="font-weight:900; color:var(--warning); font-size:16px;">₹${x.wallets?.winning||0}</div></div>`; 
+                    rank++; 
+                }); 
+                setHtml('lbContainer', h || "<div style='text-align:center; padding:20px; color:var(--text-sub);'>No data</div>"); 
+            } catch(e) { setHtml('lbContainer', "<div class='loader'>Error loading leaderboard</div>"); } 
+        }
+
+        window.shareOnWhatsApp = () => { const code = window.userData?.myReferralCode || ""; const link = " "; const msg = `Hey! Download FireX Esports     and play tournaments with me. Use my Referral Code: *${code}* to get a signup bonus! Download here: ${link}`; window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank'); };
+        async function loadReferralHistory() { setHtml('referHistoryList', "<div class='loader'>Loading history...</div>"); try { const snap = await db.collection("referrals").where("referrerUid", "==", window.currentUser.uid).get(); let h = ''; snap.forEach(d => { const x = d.data(); const sc = x.status === 'Approved' ? 'var(--success)' : (x.status === 'Pending' ? 'var(--warning)' : 'var(--primary-red)'); h += `<div class="txn-item" style="background:rgba(0,0,0,0.03); border:1px solid var(--border-color);"><div><div style="font-weight:bold; font-size:13px; color:var(--text-main);">${x.refereeName}</div></div><div style="text-align:right;"><div style="font-size:12px; color:${sc}; font-weight:bold;">${x.status}</div></div></div>`; }); setHtml('referHistoryList', h || "<div class='loader' style='padding:20px 0;'>You haven't referred anyone yet.</div>"); } catch(e) { setHtml('referHistoryList', "<div class='loader'>Error loading referrals.</div>"); } }
+
+        window.openDepositFlow = () => { 
+            if(window.appSettings) { 
+                let minDep = window.appSettings.minDeposit || 10;
+                let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+                if(isVip) minDep = Math.max(1, Math.floor(minDep / 2));
+
+                setTxt('depMinAmt', minDep); 
+            } 
+            const ds1 = document.getElementById('depStep1'); if(ds1) ds1.style.display = 'block'; 
+            const ds2 = document.getElementById('depStep2'); if(ds2) ds2.style.display = 'none'; 
+            const da = document.getElementById('depAmtInput'); if(da) da.value = ''; 
+            openModal('depositModal'); 
+        };
+        window.closeDepositModal = () => { closeModal('depositModal'); };
+        window.setDepAmt = (amt) => { const da = document.getElementById('depAmtInput'); if(da) da.value = amt; };
+        
+        window.goToDepositStep2 = () => { 
+            const da = document.getElementById('depAmtInput'); const amt = da ? Number(da.value) : 0; 
+            let minDep = window.appSettings?.minDeposit || 10;
+            let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+            if(isVip) minDep = Math.max(1, Math.floor(minDep / 2));
+
+            if(!amt || amt < minDep) return showToast(`Minimum deposit is ₹${minDep}`, true); 
+            setTxt('depPayAmt', amt); 
+            
+            const upiId = window.appSettings?.upiId || "";
+            const appName = window.appSettings?.appName || "FLASH BATTLE";
+            const dq = document.getElementById('depQrImg');
+            
+            if(upiId && dq) {
+                setHtml('depUpiText', `UPI: ${upiId} <i class="fa-solid fa-copy" style="color: var(--text-main); cursor: pointer; font-size: 16px;" onclick="copyAdminUpi()"></i>`);
+                const upiUri = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(appName)}&am=${amt}&cu=INR`;
+                dq.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUri)}`;
+                dq.style.display = 'block';
+            }
+
+            const ds1 = document.getElementById('depStep1'); if(ds1) ds1.style.display = 'none'; 
+            const ds2 = document.getElementById('depStep2'); if(ds2) ds2.style.display = 'block'; 
+        };
+
+        window.backToDepositStep1 = () => { const ds2 = document.getElementById('depStep2'); if(ds2) ds2.style.display = 'none'; const ds1 = document.getElementById('depStep1'); if(ds1) ds1.style.display = 'block'; };
+        
+        window.submitFinalDeposit = async () => { 
+            const da = document.getElementById('depAmtInput'); const amt = da ? Number(da.value) : 0; 
+            const df = document.getElementById('depFileInput'); const file = df ? df.files[0] : null; 
+            const du = document.getElementById('depUtrInput'); const utr = du ? du.value.trim() : ""; 
+            if(!file && !utr) return showToast("Provide Screenshot OR UTR number.", true); 
+            const btn = document.getElementById('depSubmitFinalBtn'); 
+            if(btn) { btn.innerText = "Uploading..."; btn.disabled = true; }
+            try { 
+                let proof = utr; let type = 'UTR'; 
+                if(file) { 
+                    const formData = new FormData(); formData.append('image', file); const IMGBB_API_KEY = "" /* removed & rotated */;
+                    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if(data.success) { proof = data.data.url; type = 'Screenshot'; } else { throw new Error("Image Upload Failed"); }
+                } 
+                await db.collection("deposits").add({ userId: window.currentUser.uid, userEmail: window.userData?.email || '', amount: amt, type: type, proofUrl: proof, status: 'Pending', createdAt: new Date() }); 
+                showToast("Deposit Request Sent to Admin!"); closeDepositModal(); await loadUserTransactions(); 
+            } catch(e) { showToast(e.message || "Error submitting request", true); } 
+            if(btn) { btn.innerText = "Confirm Deposit"; btn.disabled = false; }
+        };
+        
+        const wM = document.getElementById('withdrawModal');
+        if(wM) { 
+            wM.addEventListener('DOMNodeInserted', () => { 
+                setTxt('widAvailBal', window.userData?.wallets?.winning || 0); 
+                setTxt('widMin', window.appSettings?.widMin || 50); 
+                setTxt('widMax', window.appSettings?.widMax || 5000); 
+                let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+                setTxt('widDailyCountText', `Daily limit: ${isVip ? 8 : 3} withdrawals`);
+            }); 
+        }
+        
+        window.switchWidMethod = (method) => {
+            document.getElementById('widMethodUpiBtn').classList.remove('active');
+            document.getElementById('widMethodRedeemBtn').classList.remove('active');
+            document.getElementById('widUpiFields').style.display = 'none';
+            document.getElementById('widRedeemFields').style.display = 'none';
+
+            if(method === 'upi') {
+                document.getElementById('widMethodUpiBtn').classList.add('active');
+                document.getElementById('widUpiFields').style.display = 'block';
+            } else {
+                document.getElementById('widMethodRedeemBtn').classList.add('active');
+                document.getElementById('widRedeemFields').style.display = 'block';
+            }
+            document.getElementById('widSelectedMethod').value = method;
+        };
+
+        window.submitWithdraw = async () => { 
+            const wa = document.getElementById('widAmt'); const amt = wa ? Number(wa.value) : 0; 
+            const winBal = Number(window.userData?.wallets?.winning || 0); const min = Number(window.appSettings?.widMin || 50); const max = Number(window.appSettings?.widMax || 5000); 
+            
+            if(!amt || amt < min || amt > max) return showToast(`Amount must be between ₹${min} and ₹${max}`, true); 
+            if(amt > winBal) return showToast("Insufficient Winning Balance!", true); 
+
+            const method = document.getElementById('widSelectedMethod').value;
+            let upi = "", name = "";
+
+            if(method === 'upi') {
+                upi = document.getElementById('widUpi').value.trim();
+                name = document.getElementById('widName').value.trim();
+                if(!upi || !name) return showToast("Please fill UPI details.", true);
+            } else {
+                upi = "PLAYSTORE REDEEM CODE";
+                name = document.getElementById('widContact').value.trim();
+                if(!name) return showToast("Provide contact to receive code.", true);
+            }
+            
+            const today = new Date(); today.setHours(0,0,0,0);
+            try {
+                const widSnap = await db.collection("withdrawals").where("userId", "==", window.currentUser.uid).where("createdAt", ">=", today).get();
+                const todaysCount = widSnap.size;
+                let isVip = false; if(window.userData.vipExpiry && new Date() < new Date(window.userData.vipExpiry)) isVip = true;
+                const maxWid = isVip ? 8 : 3;
+                if(todaysCount >= maxWid) return showToast(`Daily limit reached! You can withdraw ${maxWid} time(s) a day.`, true);
+            } catch(e) {}
+
+            const btn = document.getElementById('widSubmitBtn'); if(btn) { btn.innerText = "Processing..."; btn.disabled = true; }
+            try { 
+                await db.collection("users").doc(window.currentUser.uid).update({ "wallets.winning": firebase.firestore.FieldValue.increment(-amt) }); 
+                await db.collection("withdrawals").add({ userId: window.currentUser.uid, userEmail: window.userData?.email || '', amount: amt, upiId: upi, accountName: name, status: 'Pending', createdAt: new Date() }); 
+                showToast("Withdraw Request Placed!"); closeModal('withdrawModal'); await loadUserProfile(window.currentUser.uid); await loadUserTransactions(); 
+            } catch(e) { showToast("Error", true); } 
+            if(btn) { btn.innerText = "Request Withdraw"; btn.disabled = false; }
+        };
+        
+        window.applyRedeem = async () => { const ri = document.getElementById('redeemInput'); const code = ri ? ri.value.trim() : ""; if(!code) return showToast("Enter code", true); try { const snap = await db.collection("redeem_codes").where("code", "==", code).where("status", "==", "Active").get(); if(snap.empty) return showToast("Invalid or Used Code!", true); const docId = snap.docs[0].id; const amt = snap.docs[0].data().amount; await db.collection("users").doc(window.currentUser.uid).update({ "wallets.bonus": firebase.firestore.FieldValue.increment(amt) }); await db.collection("redeem_codes").doc(docId).update({ status: 'Used by ' + (window.userData?.ffName || 'User') }); await db.collection("transactions").add({ userId: window.currentUser.uid, type: "Redeem Code", desc: code, amount: amt, status: "Success", date: new Date() }); showToast(`₹${amt} added to Bonus Wallet!`); if(ri) ri.value = ''; await loadUserProfile(window.currentUser.uid); await loadUserTransactions(); } catch(e) { showToast("Error applying code", true); } };
+
+        async function loadUserTransactions() {
+            try {
+                const [txnSnap, depSnap, widSnap, refSnap] = await Promise.all([
+                    db.collection("transactions").where("userId", "==", window.currentUser.uid).get(),
+                    db.collection("deposits").where("userId", "==", window.currentUser.uid).get(),
+                    db.collection("withdrawals").where("userId", "==", window.currentUser.uid).get(),
+                    db.collection("referrals").where("referrerUid", "==", window.currentUser.uid).get()
+                ]);
+
+                let txns = [];
+                
+                txnSnap.forEach(d => {
+                    const x = d.data();
+                    if(x.type !== 'Deposit Req' && x.type !== 'Withdraw Req') {
+                        txns.push({...x, tType: x.type, date: x.date || x.createdAt});
+                    }
+                });
+                
+                depSnap.forEach(d => {
+                    const x = d.data();
+                    let desc = `Via ${x.type}`;
+                    if(x.status === 'Rejected' && x.rejectReason) desc += ` (Reason: ${x.rejectReason})`;
+                    txns.push({...x, tType: 'Deposit', desc: desc, amount: x.amount, status: x.status, date: x.createdAt, isPlus: true });
+                });
+
+                widSnap.forEach(d => {
+                    const x = d.data();
+                    let desc = x.upiId === 'PLAYSTORE REDEEM CODE' ? `Redeem Code (${x.accountName})` : `To ${x.upiId}`;
+                    if(x.status === 'Rejected' && x.rejectReason) desc += ` (Reason: ${x.rejectReason})`;
+                    txns.push({...x, tType: 'Withdraw', desc: desc, amount: x.amount, status: x.status, date: x.createdAt, isMinus: x.status !== 'Rejected', redeemCode: x.redeemCodeSent });
+                });
+
+                refSnap.forEach(d => {
+                    const x = d.data();
+                    if(x.status === 'Approved') {
+                        txns.push({...x, tType: 'Referral Bonus', desc: `Referred ${x.refereeName}`, amount: window.appSettings?.referralBonus || 0, status: 'Success', date: x.createdAt, isPlus: true});
+                    }
+                });
+
+                txns.sort((a,b) => (b.date?.toMillis() || 0) - (a.date?.toMillis() || 0)); 
+                window.allUserTxns = txns; 
+                
+                let h = '';
+                txns.forEach(x => {
+                    if(!x.date) return;
+                    const ds = x.date.toDate().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}); 
+                    const sc = (x.status === 'Approved' || x.status === 'Success') ? 'var(--success)' : ((x.status === 'Pending') ? 'var(--warning)' : 'var(--primary-red)'); 
+                    
+                    let sign = ''; let color = 'var(--text-main)';
+                    
+                    if(x.isPlus || x.tType === 'Redeem Code' || x.tType === 'Signup Bonus' || x.tType === 'Prize Distribution' || x.tType === 'Deposit' || x.tType === 'Referral Bonus' || x.tType === 'Refund' || x.tType === 'Admin Add') { sign = '+'; color = 'var(--success)'; }
+                    else if(x.isMinus || x.tType === 'Match Entry' || x.tType === 'Withdraw' || x.tType === 'Store Purchase' || x.tType === 'Password Change Fee' || x.tType === 'Penalty') { sign = '-'; color = 'var(--primary-red)'; }
+
+                    let rHtml = '';
+                    if (x.redeemCode) {
+                        rHtml = `<div style="background: rgba(40, 167, 69, 0.1); padding: 8px; border-radius: 8px; border: 1px dashed var(--success); display: flex; justify-content: space-between; align-items: center; margin-top: 10px;"><span style="font-family:monospace; color:var(--warning); font-weight:bold; font-size:11px;">${x.redeemCode}</span><button class="btn-main" style="width:auto; padding:4px 10px; font-size:10px; margin:0; box-shadow:none;" onclick="copyToClipboard('${x.redeemCode}')"><i class="fa-solid fa-copy"></i> Copy</button></div>`;
+                    }
+
+                    h += `<div class="txn-item" style="display:flex; flex-direction:column; gap:5px;">
+                            <div style="display:flex; justify-content:space-between; width:100%;">
+                                <div>
+                                    <div style="font-weight:bold; font-size:13px; color:var(--text-main);">${x.tType}</div>
+                                    <div style="font-size:10px; color:var(--text-sub);">${x.desc || ''} <br> ${ds}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="font-weight:bold; font-size:14px; color:${color};">${sign}₹${x.amount}</div>
+                                    <div style="font-size:10px; color:${sc}; font-weight:bold;">${x.status || 'Success'}</div>
+                                </div>
+                            </div>
+                            ${rHtml}
+                          </div>`; 
+                });
+                setHtml('walletTxnList', h || "<div class='loader'>No transactions found.</div>");
+                
+                loadNotifications();
+            } catch(e) { setHtml('walletTxnList', "Error loading history"); console.error(e); }
+        }
+
+        async function loadNotifications() { 
+            try { 
+                const snap = await db.collection("notifications").orderBy("createdAt", "desc").limit(20).get(); 
+                let allNotifs = [];
+                snap.forEach(d => { 
+                    const x = d.data();
+                    const target = x.targetUser ? x.targetUser.toLowerCase() : '';
+                    const myName = (window.userData && window.userData.ffName) ? window.userData.ffName.toLowerCase() : '';
+
+                    if(window.notifsEnabled && (target === 'all' || target === myName)) { 
+                        allNotifs.push({ title: x.title, body: x.body, date: x.createdAt, code: x.code, category: x.category, isManual: true });
+                    } 
+                });
+                
+                if(window.allUserTxns && window.notifsEnabled) {
+                    window.allUserTxns.forEach(tx => {
+                        let nTitle = ""; let nBody = "";
+                        if(tx.tType === 'Deposit') {
+                            if(tx.status === 'Approved') { nTitle = "Deposit Successful"; nBody = `₹${tx.amount} has been added to your wallet.`; }
+                            else if(tx.status === 'Rejected') { nTitle = "Deposit Failed"; nBody = `₹${tx.amount} deposit was rejected. ${tx.rejectReason ? 'Reason: '+tx.rejectReason : ''}`; }
+                            else if(tx.status === 'Pending') { nTitle = "Deposit Pending"; nBody = `Your deposit of ₹${tx.amount} is under review.`; }
+                        } else if(tx.tType === 'Withdraw') {
+                            if(tx.status === 'Approved') { nTitle = "Withdrawal Successful"; nBody = `₹${tx.amount} has been sent to your account.`; }
+                            else if(tx.status === 'Rejected') { nTitle = "Withdrawal Rejected (Refunded)"; nBody = `₹${tx.amount} refunded to winning wallet. ${tx.rejectReason ? 'Reason: '+tx.rejectReason : ''}`; }
+                            else if(tx.status === 'Pending') { nTitle = "Withdrawal Pending"; nBody = `Your withdrawal request of ₹${tx.amount} is being processed.`; }
+                        } else if(tx.tType === 'Match Entry') { nTitle = "Match Joined"; nBody = `Entry fee of ₹${tx.amount} deducted for joining the match. Good luck!`;
+                        } else if(tx.tType === 'Signup Bonus') { nTitle = "Welcome Bonus"; nBody = `₹${tx.amount} signup bonus added to your wallet!`;
+                        } else if(tx.tType === 'Referral Bonus') { nTitle = "Referral Reward"; nBody = `₹${tx.amount} bonus credited for your successful referral!`;
+                        } else if(tx.tType === 'Redeem Code') { nTitle = "Gift Redeemed"; nBody = `₹${tx.amount} added to your bonus wallet from promo code.`;
+                        } else if(tx.tType === 'Refund') { nTitle = "Match Refund"; nBody = `₹${tx.amount} refunded to your wallet.`;
+                        } else if(tx.tType === 'Admin Add') { nTitle = "Wallet Credited"; nBody = `₹${tx.amount} added to your wallet.`; 
+                        } else if(tx.tType === 'Penalty') { nTitle = "Wallet Penalty"; nBody = `₹${tx.amount} deducted from your wallet by Admin.`; }
+                        
+                        if(nTitle) { allNotifs.push({ title: nTitle, body: nBody, date: tx.date, isManual: false }); }
+                    });
+                }
+                
+                allNotifs.sort((a,b) => (b.date?.toMillis() || 0) - (a.date?.toMillis() || 0));
+                
+                let lastView = localStorage.getItem('lastNotifView') || 0;
+                let count = 0;
+                
+                let h = ''; 
+                allNotifs.forEach(x => { 
+                    if(x.date && x.date.toMillis() > lastView) { count++; }
+                    let eH = ''; 
+                    if(x.isManual && x.category === 'Redeem' && x.code) { 
+                        eH = `<div style="background: rgba(40, 167, 69, 0.1); padding: 8px; border-radius: 8px; border: 1px dashed var(--success); display: flex; justify-content: space-between; align-items: center; margin-top: 10px;"><span style="font-family:monospace; color:var(--warning); font-weight:bold;">${x.code}</span><button class="btn-main" style="width:auto; padding:5px 10px; font-size:10px; margin:0;" onclick="copyToClipboard('${x.code}')"><i class="fa-solid fa-copy"></i> Copy</button></div>`; 
+                    } 
+                    const timeStr = x.date ? x.date.toDate().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+                    h += `<div style="background:var(--surface-card); padding:15px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                <div style="font-weight:bold; color:var(--primary); font-size:13px;">${x.title}</div>
+                                <div style="font-size:9px; color:var(--text-sub);">${timeStr}</div>
+                            </div>
+                            <div style="font-size:11px; color:var(--text-sub);">${x.body}</div>
+                            ${eH}
+                          </div>`; 
+                }); 
+                
+                setHtml('notifListContainer', h || `<div style="text-align:center; color:var(--text-sub); font-size:12px;">No new notifications.</div>`); 
+                
+                const nb = document.getElementById('notifBadge');
+                if(count > 0) { 
+                    if(nb) {
+                        nb.style.display = 'flex';
+                        nb.innerText = count > 9 ? '9+' : count;
+                    }
+                } else {
+                    if(nb) nb.style.display = 'none';
+                }
+            } catch(e) { console.error(e); } 
+        }
+
+    </script>
+
+<!-- FireX v3 upgrade pack (public config is safe; no private keys here) -->
+<script src="config.js"></script>
+<script>window.FIREX_VAPID_KEY = "BIfjNrd_Aw_dOVm60RwXksGoveVYWrOwemwDKktqt_ub74n7qsLz4IyntjreN9MS3X9laeG2U0W6G_AeDIxX1FY"; /* PUBLIC Web Push key — safe */</script>
+<script src="firex-upgrade.js"></script>
+</body>
+</html>

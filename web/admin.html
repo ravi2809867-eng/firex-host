@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SUPER ADMIN - SETUP & DASHBOARD</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root { --bg-dark: #0f0f13; --surface-card: #1c1c24; --primary-red: #ff3333; --text-main: #ffffff; --text-sub: #a0a0b0; --admin-accent: #00e676; --warning: #ffaa00; --info: #00bfff; --success-btn: #28a745; --vip: #ffd700; --crown: #ffb300; --tick: #1da1f2; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; font-size: 14px; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; } ::-webkit-scrollbar-track { background: var(--bg-dark); } ::-webkit-scrollbar-thumb { background: var(--surface-card); }
+
+        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); z-index: 9999999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .splash-loader { width: 45px; height: 45px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--admin-accent); border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; display: none; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle at center, #2a2a35 0%, var(--bg-dark) 100%); padding: 20px; transition: opacity 0.5s; }
+        .login-box { background: var(--surface-card); padding: 30px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.8); text-align: center; width: 100%; max-width: 350px; border: 1px solid rgba(255,255,255,0.05); }
+        .form-input { width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: white; font-size: 13px; outline: none; margin-bottom: 15px;}
+        .form-input:focus { border-color: var(--admin-accent); }
+        .form-input:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-admin { width: 100%; padding: 12px 15px; background: var(--admin-accent); color: #000; border: none; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .btn-admin:active { transform: scale(0.95); }
+        .btn-success { background: var(--success-btn); color: white; width: 100%; padding: 12px 15px; border-radius: 10px; font-weight: bold; font-size: 14px; border: none; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-success:active { transform: scale(0.95); }
+
+        #adminMain { display: none; min-height: 100vh; animation: fadeIn 0.4s; flex-direction: column;}
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .top-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--surface-card); position: sticky; top: 0; z-index: 100; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .menu-btn { font-size: 20px; color: var(--text-sub); cursor: pointer; padding: 5px;}
+        .app-logo-box { width: 35px; height: 35px; border-radius: 8px; background: rgba(255,255,255,0.1); display: flex; justify-content: center; align-items: center; overflow: hidden; cursor: pointer; border: 1px solid var(--admin-accent);}
+        .app-logo-box img { width: 100%; height: 100%; object-fit: cover; }
+        .app-name-text { font-size: 14px; font-weight: 700; color: var(--text-main); letter-spacing: 1px; text-transform: uppercase; cursor: pointer;}
+        
+        .header-right { display: flex; align-items: center; gap: 10px; }
+        .live-badge { font-size: 10px; font-weight: bold; background: rgba(0,230,118,0.1); color: var(--admin-accent); padding: 5px 10px; border-radius: 15px; border: 1px solid var(--admin-accent); display: flex; align-items: center; gap: 5px;}
+
+        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; backdrop-filter: blur(3px); }
+        .sidebar { position: fixed; top: 0; left: -280px; width: 260px; height: 100vh; background: var(--surface-card); z-index: 1000; transition: 0.3s; overflow-y: auto; padding-bottom: 30px; border-right: 1px solid rgba(255,255,255,0.05); }
+        .sidebar.open { left: 0; box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+        .sidebar-header { padding: 20px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05);}
+        .nav-item { padding: 12px 20px; display: flex; align-items: center; gap: 15px; color: var(--text-sub); font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.2s; border-left: 4px solid transparent;}
+        .nav-item.active { background: linear-gradient(90deg, rgba(0, 230, 118, 0.15) 0%, transparent 100%); color: var(--admin-accent); border-left: 4px solid var(--admin-accent); }
+        .nav-item i { width: 20px; text-align: center; font-size: 16px;}
+
+        .content-area { padding: 15px; flex: 1; overflow-y: auto; overflow-x: hidden; }
+        .admin-section { display: none; animation: slideUp 0.3s ease; }
+        .admin-section.active { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+        .form-card { background: var(--surface-card); padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px; display: none; }
+        .form-card.active { display: block; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-group { margin-bottom: 15px; width: 100%; }
+        .form-label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 5px; font-weight: 500; }
+        .form-select { width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: white; font-size: 13px; outline: none; margin-bottom: 15px;}
+        .form-select:focus { border-color: var(--admin-accent); }
+        textarea.form-input { resize: vertical; min-height: 80px; }
+        
+        .btn-outline { background: transparent; color: var(--admin-accent); border: 1px solid var(--admin-accent); padding: 8px 15px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: 0.2s; width: 100%;}
+        .btn-outline:active { transform: scale(0.95); }
+        .btn-danger { background: rgba(255,51,51,0.1); color: var(--primary-red); border: 1px solid var(--primary-red); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; border:none;}
+        .btn-info { background: rgba(0,191,255,0.1); color: var(--info); border: 1px solid var(--info); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; border:none;}
+
+        .dash-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;}
+        .dash-card { background: var(--surface-card); padding: 15px 10px; border-radius: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
+        .dash-icon { font-size: 20px; margin-bottom: 5px; }
+        .dash-card h2 { font-size: 18px; margin: 5px 0;}
+        
+        .table-wrapper { overflow-x: auto; background: var(--surface-card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-top: 15px; width: 100%;}
+        .admin-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        .admin-table th { background: rgba(0,0,0,0.3); color: var(--text-sub); padding: 12px 10px; text-align: left; font-size: 12px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.05); white-space: nowrap;}
+        .admin-table td { padding: 12px 10px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.02); color: white; vertical-align: middle;}
+        
+        .badge { padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin-bottom:2px;}
+        .b-warn { background: rgba(245,158,11,0.1); color: var(--warning); border: 1px solid var(--warning); }
+        .b-succ { background: rgba(16,185,129,0.1); color: var(--admin-accent); border: 1px solid var(--admin-accent); }
+        .b-err { background: rgba(239,68,68,0.1); color: var(--primary-red); border: 1px solid var(--primary-red); }
+
+        /* Custom Tags Design */
+        .user-tag-row { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-top: 3px;}
+        .tag-vip { background: rgba(255,215,0,0.1); color: var(--vip); border: 1px solid var(--vip); padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+        .tag-crown { color: var(--crown); font-size: 12px; }
+        .tag-tick { color: var(--tick); font-size: 12px; }
+        .tag-lvl { background: rgba(255,255,255,0.1); color: #fff; padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+        .tag-rank { background: rgba(0,191,255,0.1); color: var(--info); padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+        .user-pic { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.2); }
+        .emoji-pic { font-size: 24px; }
+
+        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 20000; justify-content: center; align-items: center; padding: 15px; backdrop-filter: blur(3px);}
+        .modal-content { background: var(--surface-card); padding: 20px; border-radius: 15px; width: 100%; max-width: 500px; border: 1px solid rgba(255,255,255,0.1); max-height: 90vh; overflow-y: auto;}
+
+        .chat-container { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; height: 400px; display: flex; flex-direction: column; overflow: hidden; }
+        .chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .chat-msg { background: var(--surface-card); padding: 10px; border-radius: 12px; width: fit-content; max-width: 85%; font-size: 12px; border: 1px solid rgba(255,255,255,0.05); position: relative; }
+        .chat-msg.admin-msg { background: rgba(0, 230, 118, 0.1); border-color: var(--admin-accent); align-self: flex-end;}
+        .chat-msg.staff-msg { background: rgba(0, 191, 255, 0.1); border-color: var(--info); align-self: flex-end;}
+        .chat-header { font-size: 10px; color: var(--text-sub); margin-bottom: 5px; font-weight: bold; display: flex; align-items: center; gap: 5px;}
+        .chat-input-row { display: flex; padding: 10px; background: var(--surface-card); border-top: 1px solid rgba(255,255,255,0.05); gap: 10px; }
+
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--admin-accent); color: #000; padding: 12px 20px; border-radius: 20px; font-weight: bold; z-index: 999999; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 12px; white-space: nowrap;}
+
+        @media (max-width: 768px) {
+            .dash-grid { grid-template-columns: 1fr 1fr; }
+            .form-row { grid-template-columns: 1fr; gap: 0; }
+        }
+        
+        .analytics-box { background: rgba(0,0,0,0.3); border: 1px dashed var(--text-sub); border-radius: 12px; padding: 15px; margin-top: 20px; font-size: 13px; line-height: 1.8; color: #ddd; }
+        .analytics-box span.val { font-weight: 800; color: var(--admin-accent); font-family: monospace; font-size: 14px; }
+        .analytics-box span.val-warn { font-weight: 800; color: var(--warning); font-family: monospace; font-size: 14px; }
+        .analytics-box span.val-err { font-weight: 800; color: var(--primary-red); font-family: monospace; font-size: 14px; }
+        .analytics-box span.val-info { font-weight: 800; color: var(--info); font-family: monospace; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div id="toast">Message</div>
+
+    <div id="splashScreen">
+        <h1 style="color:var(--admin-accent); font-size:28px; font-weight:900; letter-spacing:2px; margin-bottom:10px;"> FireX Esports ...</h1>
+        <div class="splash-loader"></div>
+    </div>
+
+    <div id="loginScreen">
+        <div class="login-box">
+            <h2 style="color: var(--admin-accent); margin-bottom: 5px; font-size: 20px;"><i class="fa-solid fa-user-shield"></i> <span id="authTitle">ADMIN LOGIN</span></h2>
+            <div style="font-size: 11px; color: var(--text-sub); margin-bottom: 20px;" id="authSubtitle">Checking Database...</div>
+            <input type="email" id="adminEmailInput" class="form-input" placeholder="Admin Email">
+            <input type="password" id="adminPassInput" class="form-input" placeholder="Password">
+            <button class="btn-admin" id="adminLoginBtn" onclick="window.handleAuth()">PLEASE WAIT...</button>
+            <div id="authError" style="color: var(--primary-red); font-size: 11px; margin-top: 10px; display: none;">Error</div>
+        </div>
+    </div>
+
+    <div id="adminMain">
+        <div class="top-header">
+            <div class="header-left">
+                <i class="fa-solid fa-bars menu-btn" onclick="window.toggleSidebar()"></i>
+                <div class="app-logo-box" onclick="window.openProfileModal()">
+                    <img id="topHeaderLogo" src="" alt="L" onerror="this.style.display='none'">
+                    <i class="fa-solid fa-image" id="topHeaderFallback" style="display:none; color:var(--text-sub);"></i>
+                </div>
+                <div class="app-name-text" id="topHeaderName" onclick="window.openProfileModal()">  FireX Esports   </div>
+            </div>FireX Esports
+            <div class="header-right">
+                <div class="live-badge"><i class="fa-solid fa-circle" style="animation: fadeIn 1s infinite alternate;"></i> <span id="liveUsersCount">0</span> Live</div>
+            </div>
+        </div>
+
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="window.toggleSidebar()"></div>
+
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3 style="color: var(--admin-accent); font-size: 14px;">ADMIN MENU</h3>
+                <i class="fa-solid fa-xmark" style="color:var(--text-sub); font-size:18px; cursor:pointer;" onclick="window.toggleSidebar()"></i>
+            </div>
+            <div class="nav-list" style="margin-top: 10px;">
+                <div class="nav-item active" onclick="window.switchTab('Dashboard', this)">1. <i class="fa-solid fa-chart-pie"></i> Dashboard</div>
+                <div class="nav-item" onclick="window.switchTab('AppSchedule', this)">2. <i class="fa-solid fa-clock"></i> App Schedule</div>
+                <div class="nav-item" onclick="window.switchTab('StaffSetup', this)">3. <i class="fa-solid fa-user-tie"></i> Add Staff</div>
+                <div class="nav-item" onclick="window.switchTab('Promotions', this)">4. <i class="fa-solid fa-image"></i> Add Promotion Banners</div>
+                <div class="nav-item" onclick="window.switchTab('GameCategory', this)">5. <i class="fa-solid fa-dice"></i> Game Category</div>
+                <div class="nav-item" onclick="window.switchTab('AddTourney', this)">6. <i class="fa-solid fa-gamepad"></i> Add Tournaments</div>
+                <div class="nav-item" onclick="window.switchTab('PrizeDist', this)">7. <i class="fa-solid fa-trophy"></i> Prize Distribution</div>
+                <div class="nav-item" onclick="window.switchTab('Deposits', this)">8. <i class="fa-solid fa-piggy-bank"></i> Normal Deposits</div>
+                <div class="nav-item" onclick="window.switchTab('Withdraws', this)">9. <i class="fa-solid fa-money-bill-transfer"></i> Withdraws</div>
+                <div class="nav-item" onclick="window.switchTab('VipAirdrop', this)">10. <i class="fa-solid fa-parachute-box"></i> VIP & Airdrops</div>
+                <div class="nav-item" onclick="window.switchTab('Users', this)">11. <i class="fa-solid fa-users"></i> User Management</div>
+                <div class="nav-item" onclick="window.switchTab('Notifications', this)">12. <i class="fa-solid fa-bell"></i> Notification</div>
+                <div class="nav-item" onclick="window.switchTab('RedeemCode', this)">13. <i class="fa-solid fa-gift"></i> Redeem Code</div>
+                <div class="nav-item" onclick="window.switchTab('VipListChat', this)">14. <i class="fa-solid fa-headset" style="color:var(--vip);"></i> VIP List with Chat</div>
+                <div class="nav-item" onclick="window.switchTab('GlobalChat', this)">15. <i class="fa-solid fa-globe"></i> Global Chat</div>
+                <div class="nav-item" onclick="window.switchTab('TxnHistory', this)">16. <i class="fa-solid fa-receipt"></i> Transaction History</div>
+                <div class="nav-item" onclick="window.switchTab('Leaderboard', this)">17. <i class="fa-solid fa-ranking-star"></i> Leaderboard</div>
+                <div class="nav-item" onclick="window.switchTab('Referral', this)">18. <i class="fa-solid fa-users-viewfinder"></i> Refer & Earn</div>
+                <div class="nav-item" onclick="window.switchTab('StaffAdded', this)">19. <i class="fa-solid fa-list-check"></i> Staff Activity</div>
+                <div class="nav-item" onclick="window.switchTab('Themes', this)">20. <i class="fa-solid fa-palette"></i> App Themes</div>
+                <div class="nav-item" onclick="window.switchTab('Settings', this)">21. <i class="fa-solid fa-gear"></i> App Settings</div>
+                <div class="nav-item" onclick="window.switchTab('HelpLinks', this)">22. <i class="fa-solid fa-link"></i> Help Line Links</div>
+                <div class="nav-item" onclick="window.switchTab('AppUpdate', this)">23. <i class="fa-solid fa-mobile"></i> App Update Version</div>
+
+                
+                <div class="nav-item" onclick="window.logoutAdmin()" style="margin-top: 10px; color: var(--primary-red); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;"><i class="fa-solid fa-right-from-bracket"></i> Secure Logout</div>
+            </div>
+        </div>
+
+        <div class="content-area" id="contentArea">
+            
+            <div id="sec-Dashboard" class="admin-section active">
+                <h3 style="margin-bottom: 15px; font-size: 16px;">App Statistics</h3>
+                <div class="dash-grid">
+                    <div class="dash-card" style="grid-column: span 2; border-color: var(--success-btn);"><div class="dash-icon" style="color:var(--success-btn);"><i class="fa-solid fa-chart-line"></i></div><h2 id="dWeeklyProfit">₹0</h2><div style="font-size:10px; color:var(--text-sub);">Net Earnings (Deposits - Withdrawals)</div></div>
+                    <div class="dash-card"><div class="dash-icon" style="color:var(--info);"><i class="fa-solid fa-users"></i></div><h2 id="dTotalUsers">0</h2><div style="font-size:10px; color:var(--text-sub);">Total Users</div></div>
+                    <div class="dash-card"><div class="dash-icon" style="color:var(--admin-accent);"><i class="fa-solid fa-gamepad"></i></div><h2 id="dTotalMatches">0</h2><div style="font-size:10px; color:var(--text-sub);">Total Matches</div></div>
+                    <div class="dash-card" style="border-color:var(--warning);"><div class="dash-icon" style="color:var(--warning);"><i class="fa-solid fa-clock"></i></div><h2 id="dPendDep">0</h2><div style="font-size:10px; color:var(--text-sub);">Pending Deposits</div></div>
+                    <div class="dash-card" style="border-color:var(--warning);"><div class="dash-icon" style="color:var(--warning);"><i class="fa-solid fa-clock"></i></div><h2 id="dPendWid">0</h2><div style="font-size:10px; color:var(--text-sub);">Pending Withdraws</div></div>
+                    <div class="dash-card" style="border-color:var(--admin-accent);"><div class="dash-icon" style="color:var(--admin-accent);"><i class="fa-solid fa-check"></i></div><h2 id="dApprDep">0</h2><div style="font-size:10px; color:var(--text-sub);">Approved Deposits</div></div>
+                    <div class="dash-card" style="border-color:var(--admin-accent);"><div class="dash-icon" style="color:var(--admin-accent);"><i class="fa-solid fa-check-double"></i></div><h2 id="dApprWid">0</h2><div style="font-size:10px; color:var(--text-sub);">Approved Withdraws</div></div>
+                    <div class="dash-card" style="border-color:var(--primary-red);"><div class="dash-icon" style="color:var(--primary-red);"><i class="fa-solid fa-xmark"></i></div><h2 id="dRejDep">0</h2><div style="font-size:10px; color:var(--text-sub);">Rejected Deposits</div></div>
+                    <div class="dash-card" style="border-color:var(--primary-red);"><div class="dash-icon" style="color:var(--primary-red);"><i class="fa-solid fa-ban"></i></div><h2 id="dRejWid">0</h2><div style="font-size:10px; color:var(--text-sub);">Rejected Withdraws</div></div>
+                    <div class="dash-card" style="border-color: var(--vip);"><div class="dash-icon" style="color:var(--vip);"><i class="fa-solid fa-crown"></i></div><h2 id="dTotalVip">0</h2><div style="font-size:10px; color:var(--text-sub);">Total VIP Members</div></div>
+                    <div class="dash-card"><div class="dash-icon" style="color:var(--info);"><i class="fa-solid fa-user-tie"></i></div><h2 id="dTotalStaff">0</h2><div style="font-size:10px; color:var(--text-sub);">Total Staff</div></div>
+                    <div class="dash-card"><div class="dash-icon" style="color:var(--warning);"><i class="fa-solid fa-parachute-box"></i></div><h2 id="dPendVipAirdrop">0</h2><div style="font-size:10px; color:var(--text-sub);">Pending VIP/Airdrops</div></div>
+                    <div class="dash-card"><div class="dash-icon" style="color:var(--admin-accent);"><i class="fa-solid fa-box-open"></i></div><h2 id="dApprVipAirdrop">0</h2><div style="font-size:10px; color:var(--text-sub);">Approved VIP/Airdrops</div></div>
+                </div>
+
+                <div class="analytics-box" id="analyticsEngine">
+                    <h3 style="color: var(--text-main); margin-bottom: 10px; font-size: 15px;"><i class="fa-solid fa-magnifying-glass-chart"></i> Smart Financial Analytics</h3>
+                    <div id="anLoading">Loading deep analysis...</div>
+                    <div id="anContent" style="display:none;">
+                        • The system generated <span class="val-info" id="anVipStore">₹0</span> exclusively from **VIP Memberships & Store Items** purchases.<br>
+                        • Profits generated successfully from **Special Airdrops** are <span class="val-warn" id="anAirdrop">₹0</span>.<br>
+                        • **Today's** total net earnings (Inflow - Outflow) stand at <span class="val" id="anToday">₹0</span>.<br>
+                        • Over the **last 7 Days (Weekly)**, the platform secured a net earning of <span class="val" id="anWeekly">₹0</span>.<br>
+                        • For the **Current Year**, the overall net earnings are <span class="val" id="anYearly">₹0</span>.<br><br>
+                        <i class="fa-solid fa-money-bill-trend-up" style="color:var(--success-btn);"></i> Lifetime Total Cash Added by Users (Deposits): <span class="val" style="color:var(--success-btn);" id="anTotDep">₹0</span><br>
+                        <i class="fa-solid fa-money-bill-transfer" style="color:var(--primary-red);"></i> Lifetime Total Cash Sent to Users (Withdrawals): <span class="val-err" id="anTotWid">₹0</span><br>
+                        <i class="fa-solid fa-scale-balanced" style="color:var(--info);"></i> **Overall Platform Net Position (Profit / Loss): <span class="val-info" id="anNetBal" style="font-size:16px;">₹0</span>**
+                    </div>
+                </div>
+            </div>
+
+            <div id="sec-AppSchedule" class="admin-section">
+                <h3 style="margin-bottom: 15px;">App Schedule & Lock</h3>
+                <div class="form-card active">
+                    <p style="font-size: 11px; color: var(--text-sub); margin-bottom: 15px;">Control User App accessibility. Custom message will be shown to users when closed.</p>
+                    <div class="form-group">
+                        <label class="form-label">App Status</label>
+                        <select id="appStatusSelect" class="form-select" onchange="window.toggleScheduleTime()"><option value="open">Live (Always Open)</option><option value="closed">Maintenance (Always Closed)</option><option value="scheduled">Time Schedule (Daily Down Time)</option></select>
+                    </div>
+                    <div class="form-group"><label class="form-label">Custom Display Message</label><input type="text" id="schMessage" class="form-input" placeholder="e.g. Server maintenance is in progress. Please wait."></div>
+                    <div id="scheduleTimeBox" style="display: none; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div class="form-row"><div class="form-group" style="margin-bottom:10px;"><label class="form-label">Close Start Time</label><input type="time" id="schStart" class="form-input" style="margin:0;"></div><div class="form-group" style="margin:0;"><label class="form-label">Open Time (App Lives)</label><input type="time" id="schEnd" class="form-input" style="margin:0;"></div></div>
+                    </div>
+                    <button class="btn-success" onclick="window.saveAppSchedule()"><i class="fa-solid fa-floppy-disk"></i> Save App Status</button>
+                </div>
+            </div>
+
+            <div id="sec-StaffSetup" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size: 16px;">Staff Accounts</h3>
+                    <button class="btn-outline" style="width:auto; font-size:11px;" onclick="window.toggleForm('staffForm')"><i class="fa-solid fa-plus"></i> Add Staff</button>
+                </div>
+                <div class="form-card" id="staffForm">
+                    <input type="hidden" id="staffEditId">
+                    <div class="form-group"><label class="form-label">Staff Username</label><input type="text" id="staffNameInput" class="form-input" placeholder="Ex: Ramesh"></div>
+                    <div class="form-group"><label class="form-label">Staff Gmail (For Login)</label><input type="email" id="staffEmailInput" class="form-input" placeholder="staff@gmail.com"></div>
+                    <div class="form-group"><label class="form-label">Login Password (Min 6 chars)</label><input type="text" id="staffPassInput" class="form-input" placeholder="Ex: pass123"></div>
+                    <div style="display: flex; gap: 10px;"><button class="btn-admin" id="saveStaffBtn" onclick="window.saveStaff()" style="flex: 1;">Create Staff</button><button class="btn-outline" id="cancelStaffBtn" style="flex: 1; border-color: gray; color: gray; display: none;" onclick="window.cancelEditStaff()">Cancel</button></div>
+                </div>
+                <input type="text" id="staffFilterInput" class="form-input" placeholder="Search by Username or Gmail..." onkeyup="window.filterStaffTable()">
+                <div class="table-wrapper"><table class="admin-table"><thead><tr><th>Staff Info</th><th>Password</th><th>Actions</th></tr></thead><tbody id="staffTableBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-Promotions" class="admin-section">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; align-items:center;">
+                    <h3 style="font-size:16px;">Banners</h3> 
+                    <button class="btn-outline" style="width:auto; font-size:11px;" onclick="window.toggleForm('promoForm')"><i class="fa-solid fa-plus"></i> Add Promotion</button>
+                </div>
+                <div class="form-card" id="promoForm">
+                    <input type="hidden" id="promoEditId">
+                    <div class="form-group"><label class="form-label">Upload Image (Direct)</label><input type="file" id="promoFile" class="form-input" accept="image/*"></div>
+                    <div class="form-group"><label class="form-label">OR Image URL</label><input type="text" id="promoImg" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Target Link (Optional)</label><input type="text" id="promoLink" class="form-input" placeholder="URL when clicked"></div>
+                    <div style="display: flex; gap: 10px;"><button class="btn-admin" id="uploadPromoBtn" onclick="window.savePromo()" style="flex: 1;">Save Banner</button><button class="btn-outline" id="cancelPromoBtn" style="flex: 1; border-color: gray; color: gray; display: none;" onclick="window.cancelEditPromo()">Cancel</button></div>
+                </div>
+                <div id="promoList" style="display: grid; grid-template-columns: 1fr; gap: 10px;"></div>
+            </div>
+
+            <div id="sec-GameCategory" class="admin-section">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; align-items:center;">
+                    <h3 style="font-size:16px;">Categories</h3> 
+                    <button class="btn-outline" style="width:auto; font-size:11px;" onclick="window.toggleForm('gameForm')"><i class="fa-solid fa-plus"></i> Add Games</button>
+                </div>
+                <div class="form-card" id="gameForm">
+                    <input type="hidden" id="gameEditId">
+                    <div class="form-group"><label class="form-label">Game Name</label><input type="text" id="gameName" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Upload Image / URL</label><input type="file" id="gameFile" class="form-input" accept="image/*" style="margin-bottom:5px;"><input type="text" id="gameImg" class="form-input" placeholder="Direct URL"></div>
+                    <div style="display: flex; gap: 10px;"><button class="btn-admin" id="uploadGameBtn" onclick="window.saveGame()" style="flex: 1;">Save Game</button><button class="btn-outline" id="cancelGameBtn" style="flex: 1; border-color: gray; color: gray; display: none;" onclick="window.cancelEditGame()">Cancel</button></div>
+                </div>
+                <div id="gamesList" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
+            </div>
+
+            <div id="sec-AddTourney" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items:center; margin-bottom: 15px;">
+                    <h3 style="font-size: 16px;">Tournaments</h3> 
+                    <button class="btn-outline" style="width:auto; font-size:11px;" onclick="window.toggleForm('tourneyForm')"><i class="fa-solid fa-plus"></i> Add Match</button>
+                </div>
+                <input type="text" id="tourneySearchInput" class="form-input" placeholder="Search Match Title or #Serial..." onkeyup="window.searchTournaments()">
+
+                <div class="form-card" id="tourneyForm">
+                    <input type="hidden" id="tEditId"> 
+                    <div class="form-group"><label class="form-label">Category</label><select id="tCategory" class="form-select"></select></div>
+                    <div class="form-row"><div class="form-group"><label class="form-label">Match Name</label><input type="text" id="tName" class="form-input"></div><div class="form-group"><label class="form-label">Serial Number (#101)</label><input type="text" id="tSerial" class="form-input"></div></div>
+                    <div class="form-row"><div class="form-group"><label class="form-label">Date & Time</label><input type="datetime-local" id="tTime" class="form-input"></div><div class="form-group"><label class="form-label">Status</label><select id="tStatus" class="form-select"><option value="Upcoming">Upcoming</option><option value="Ongoing">Ongoing</option><option value="Results">Results</option><option value="Cancelled">Cancelled</option></select></div></div>
+                    <div class="form-row"><div class="form-group"><label class="form-label">Entry Fee (₹)</label><input type="number" id="tFee" class="form-input"></div><div class="form-group"><label class="form-label">Prize Pool (₹)</label><input type="number" id="tPool" class="form-input"></div></div>
+                    <div class="form-row"><div class="form-group"><label class="form-label">Per Kill (₹)</label><input type="number" id="tPerKill" class="form-input"></div><div class="form-group"><label class="form-label">Max Slots</label><input type="number" id="tMax" class="form-input"></div></div>
+                    <div class="form-row"><div class="form-group"><label class="form-label">Match Type</label><select id="tType" class="form-select"><option value="Solo">Solo</option><option value="Duo">Duo</option><option value="Squad">Squad</option></select></div><div class="form-group"><label class="form-label">Map Name</label><input type="text" id="tMap" class="form-input"></div></div>
+                    <div class="form-group"><label class="form-label"> Price Wala & Rules</label><textarea id="tRules" class="form-input"></textarea></div>
+                    
+                    <div class="form-group" style="background: rgba(255,215,0,0.1); padding: 10px; border-radius: 8px; border: 1px dashed var(--vip);">
+                        <label style="color: #b8860b; font-weight: bold; font-size:12px;"><i class="fa-solid fa-crown"></i> VIP Exclusive Match?</label>
+                        <select id="mVip" class="form-select" style="margin-bottom:0;"><option value="false">No, Open to All</option><option value="true">Yes, VIP Pass Required</option></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Banner Image (Direct Upload OR URL)</label>
+                        <input type="file" id="tBannerFile" class="form-input" accept="image/*" style="margin-bottom:5px;">
+                        <input type="text" id="tBanner" class="form-input" placeholder="Image URL">
+                    </div>
+                    
+                    <div style="border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px; background: rgba(0,0,0,0.2);">
+                        <label class="form-label" style="color: var(--warning);"><i class="fa-solid fa-lock"></i> Room Credentials</label>
+                        <div class="form-row"><input type="text" id="tRoomId" class="form-input" placeholder="Room ID"><input type="text" id="tRoomPass" class="form-input" placeholder="Password"></div>
+                        <label style="font-size: 11px; display: flex; align-items: center; gap: 8px;"><input type="checkbox" id="tPublishRoom" style="accent-color: var(--admin-accent);"> Publish Room Info & Send Push Notification</label>
+                    </div>
+                    <div style="display: flex; gap: 10px;"><button class="btn-admin" id="tourneySubmitBtn" onclick="window.saveTournament()" style="flex: 1;">Create</button><button class="btn-outline" style="flex: 1; border-color: gray; color: gray;" onclick="window.cancelEditTourney()">Cancel</button></div>
+                </div>
+                <div class="table-wrapper"><table class="admin-table"><thead><tr><th>Match</th><th>Info</th><th>Status</th><th>Actions</th></tr></thead><tbody id="tourneyTableBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-PrizeDist" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size:16px;">Prize Distribution</h3>
+                <div class="form-group" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,215,0,0.3);">
+                    <label class="form-label">Select Ongoing Match Only</label>
+                    <select id="mgmtTourneySelect" class="form-select" onchange="window.loadMgmtPlayers()" style="border-color: #ffaa00; margin-bottom:0;"><option value="">Select Match...</option></select>
+                </div>
+                <div class="table-wrapper" id="mgmtPlayersContainer" style="display:none; padding: 10px; border:none; background:transparent;">
+                    <div style="font-size:11px; color:var(--danger); margin-bottom:10px;">Inputs are optional. Leave blank to ignore. Total = (Kills * Kill Price) + Rank Price + Extra Money</div>
+                    <div class="table-wrapper" style="margin-top:0; border:none;"><table class="admin-table" style="min-width:700px;"><thead><tr><th>Player & Slot</th><th>Kills</th><th>Rank (₹)</th><th>Extra (₹)</th><th>Total (₹)</th></tr></thead><tbody id="mgmtPlayersBody"></tbody></table></div>
+                    <button class="btn-success" style="margin-top: 15px;" onclick="window.creditAllWinnings()"><i class="fa-solid fa-trophy"></i> Credit Winnings & Close Match</button>
+                </div>
+            </div>
+
+            <div id="sec-Deposits" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size: 16px;">Normal Deposits</h3>
+                    <button class="btn-outline" style="width:auto; font-size:12px; padding: 5px 10px;" onclick="window.openModal('depSetModal')"><i class="fa-solid fa-gear"></i></button>
+                </div>
+                <div class="table-wrapper"><table class="admin-table"><thead><tr><th>User Info</th><th>Amt/Method</th><th>Status</th><th>Actions</th></tr></thead><tbody id="depositRequestsBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-Withdraws" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size:16px;">Withdrawals</h3>
+                    <button class="btn-outline" style="width:auto; font-size:12px; padding: 5px 10px;" onclick="window.openModal('widSetModal')"><i class="fa-solid fa-gear"></i></button>
+                </div>
+                <div class="table-wrapper"><table class="admin-table"><thead><tr><th>User</th><th>Amount</th><th>UPI/Acc</th><th>Actions</th></tr></thead><tbody id="withdrawRequestsBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-VipAirdrop" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size:16px;">VIP & Airdrops Verification</h3>
+                    <button class="btn-outline" style="width:auto; font-size:11px; border-color: var(--vip); color: var(--vip);" onclick="window.openModal('storePricingModal')"><i class="fa-solid fa-store"></i> Store Items Price</button>
+                </div>
+                
+                <h4 style="color:var(--vip); font-size: 13px; margin: 15px 0 5px 0;">1. VIP Verification</h4>
+                <div class="table-wrapper" style="margin-top:0;"><table class="admin-table"><thead><tr><th>User</th><th>Package</th><th>Status</th><th>Actions</th></tr></thead><tbody id="vipVerBody"></tbody></table></div>
+
+                <h4 style="color:var(--info); font-size: 13px; margin: 20px 0 5px 0;">2. Airdrop Verification</h4>
+                <div class="table-wrapper" style="margin-top:0;"><table class="admin-table"><thead><tr><th>User</th><th>Offer Claimed</th><th>Status</th><th>Actions</th></tr></thead><tbody id="airdropVerBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-Users" class="admin-section">
+                <h3 style="font-size: 16px; margin-bottom: 15px;">User Management</h3>
+                <input type="text" id="userSearch" class="form-input" placeholder="Search by Email / FF Name / UID..." onkeyup="window.filterUsers()">
+                <div class="table-wrapper"><table class="admin-table" id="usersTable"><thead><tr><th>Player Profile & Tags</th><th>Wallets (W/D/B)</th><th>Status</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-Notifications" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size:16px;">Push Notifications</h3>
+                    <button class="btn-outline" style="width:auto; font-size:11px; color:var(--admin-accent);" onclick="window.openModal('osSetModal')"><i class="fa-solid fa-gear"></i> Setup OneSignal API</button>
+                </div>
+                <div class="form-card active">
+                    <div class="form-row"><div class="form-group"><label class="form-label">Audience</label><select id="notifType" class="form-select" onchange="window.togglePersonalNotif()"><option value="Global">All Users</option><option value="Personal">Specific User</option></select></div><div class="form-group"><label class="form-label">Type</label><select id="notifCategory" class="form-select" onchange="window.toggleRedeemBox()"><option value="Alert">Alert</option><option value="Redeem">Redeem Code</option></select></div></div>
+                    <div class="form-group" id="personalUserInput" style="display: none;"><label class="form-label">Target User Email</label><input type="email" id="notifUser" class="form-input" placeholder="user@gmail.com"></div>
+                    <div class="form-group"><label class="form-label">Title</label><input type="text" id="notifTitle" class="form-input" placeholder="Message Title"></div>
+                    <div class="form-group"><label class="form-label">Message</label><textarea id="notifBody" class="form-input" placeholder="Enter full message here..."></textarea></div>
+                    <div class="form-group" id="redeemCodeBox" style="display: none; background: rgba(0,230,118,0.1); padding: 10px; border-radius: 8px; border: 1px dashed var(--admin-accent);"><label class="form-label" style="color: var(--admin-accent); font-weight: bold;">Attach Redeem Code</label><input type="text" id="notifCode" class="form-input" style="border-color: var(--admin-accent); margin-bottom:0;"></div>
+                    <button class="btn-success" style="background: var(--info);" onclick="window.sendNotificationManual()"><i class="fa-solid fa-paper-plane"></i> Send Notification</button>
+                </div>
+            </div>
+
+            <div id="sec-RedeemCode" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size:16px;">Redeem Code Generator</h3>
+                    <button class="btn-outline" style="width:auto; font-size:11px;" onclick="window.toggleForm('redeemForm')"><i class="fa-solid fa-plus"></i> Create</button>
+                </div>
+                <div class="form-card" id="redeemForm">
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Prefix Name (e.g., TNV, FLASH)</label><input type="text" id="rcPrefix" class="form-input" value="TNV"></div>
+                        <div class="form-group"><label class="form-label">Amount (₹)</label><input type="number" id="rcAmount" class="form-input"></div>
+                    </div>
+                    <div class="form-group"><label class="form-label">How Many Codes?</label><input type="number" id="rcCount" class="form-input" placeholder="e.g. 5"></div>
+                    <button class="btn-success" onclick="window.generateRedeemCodes()">Generate Codes</button>
+                </div>
+                <div class="table-wrapper"><table class="admin-table"><thead><tr><th>Code</th><th>Amt</th><th>Status / Used By</th><th>Act</th></tr></thead><tbody id="redeemCodeBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-VipListChat" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size: 16px; color: var(--vip);"><i class="fa-solid fa-headset"></i> VIP Direct Messages</h3>
+                <div style="font-size: 11px; color: var(--text-sub); margin-bottom: 10px;">Select a VIP member to open chat. Only VIPs are listed here.</div>
+                <div id="vipUserListForChat" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; max-height: 200px; overflow-y:auto; background:rgba(0,0,0,0.2); padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);"></div>
+                
+                <div id="vipChatArea" style="display:none;"><div style="font-size:12px; color:var(--admin-accent); margin-bottom:5px; font-weight:bold;" id="vcActiveName">Chatting with: </div><div class="chat-container" style="height: 350px; border-color: var(--vip);"><div class="chat-box" id="vipChatBox"></div><div class="chat-input-row"><input type="text" id="vipChatInput" class="form-input" placeholder="Reply to user..." style="margin:0; border-color:var(--vip);"><button class="btn-admin" style="width: auto; padding: 0 20px; background:var(--vip); color:#000;" onclick="window.sendVipChat()"><i class="fa-solid fa-reply"></i></button></div></div></div>
+            </div>
+
+            <div id="sec-GlobalChat" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size: 16px;"><i class="fa-solid fa-globe" style="color:var(--info);"></i> Global Chat</h3>
+                <div class="chat-container"><div class="chat-box" id="globalChatBox"><div style="text-align:center; color:gray; font-size:12px; margin-top:20px;">Loading messages...</div></div><div class="chat-input-row"><input type="text" id="globalChatInput" class="form-input" placeholder="Type as Admin..." style="margin:0; border-color:var(--admin-accent);"><button class="btn-admin" style="width: auto; padding: 0 20px;" onclick="window.sendGlobalChat()"><i class="fa-solid fa-paper-plane"></i></button></div></div>
+            </div>
+
+            <div id="sec-TxnHistory" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size:16px;">User Transactions</h3>
+                <div class="form-card active" style="margin-bottom: 15px; padding:10px;"><div class="form-group" style="margin-bottom: 0;"><div style="display: flex; gap: 5px;"><input type="text" id="txnSearchInput" class="form-input" placeholder="Search User UID or Email..." style="margin-bottom:0;"><button class="btn-admin" style="width: auto; padding: 0 15px;" onclick="window.searchUserTransactions()"><i class="fa-solid fa-magnifying-glass"></i></button></div></div></div>
+                <div class="table-wrapper" style="margin-top:0;"><table class="admin-table"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead><tbody id="userTxnBody"><tr><td colspan="4" style="text-align:center; color:var(--text-sub); font-size:11px;">Search a UID to view history.</td></tr></tbody></table></div>
+            </div>
+
+            <div id="sec-Leaderboard" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size:16px;">Top 100 Leaderboard</h3>
+                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 20px;"><span style="font-size: 10px; font-weight: 600;" id="lbModeText">Auto</span><label class="toggle-switch" style="width:30px; height:16px;"><input type="checkbox" id="lbModeToggle" onchange="window.toggleLbMode()" checked><span class="slider" style="border-radius:16px;"></span></label></div>
+                </div>
+                <div class="form-card" id="manualLbForm" style="display:none;"><div class="form-row"><div class="form-group"><label class="form-label">Rank #</label><input type="number" id="mLbRank" class="form-input"></div><div class="form-group"><label class="form-label">Player Name</label><input type="text" id="mLbName" class="form-input"></div><div class="form-group"><label class="form-label">UID</label><input type="text" id="mLbUid" class="form-input"></div><div class="form-group"><label class="form-label">Winnings (₹)</label><input type="number" id="mLbWin" class="form-input"></div></div><button class="btn-success" style="background: var(--warning);" onclick="window.addManualLeaderboard()">Add Entry</button></div>
+                <div class="table-wrapper"><table class="admin-table"><thead><tr><th>Rnk</th><th>Player Tags</th><th>Win</th><th id="lbActionHeader" style="display:none;">Act</th></tr></thead><tbody id="leaderboardBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-Referral" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size:16px;">Referral System</h3>
+                    <button class="btn-outline" style="width:auto; font-size:11px;" onclick="window.toggleForm('refSetForm')"><i class="fa-solid fa-gear"></i> Set Bonus</button>
+                </div>
+                <div class="form-card" id="refSetForm" style="background: rgba(0,0,0,0.2); display:none;"><div class="form-group"><label class="form-label">Bonus Amount (₹) per Refer</label><input type="number" id="refBonusAmt" class="form-input"></div><button class="btn-success" onclick="window.saveReferralSettings()">Save Bonus Config</button></div>
+                
+                <input type="text" id="refSearchInput" class="form-input" placeholder="Search by Referrer or Referee name..." onkeyup="window.filterReferrals()">
+                <div class="table-wrapper" style="margin-top:0;"><table class="admin-table"><thead><tr><th>Referrer</th><th>Referee</th><th>Code</th><th>Status</th></tr></thead><tbody id="referralBody"></tbody></table></div>
+            </div>
+
+            <div id="sec-StaffAdded" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size:16px;">Staff Activity Tracker</h3>
+                <div class="form-card active" style="margin-bottom: 20px;"><div class="form-group" style="margin-bottom: 0;"><label class="form-label">Search by Staff Email</label><div style="display: flex; gap: 10px;"><input type="text" id="staffSearchInput" class="form-input" placeholder="Enter Staff Gmail..." style="margin-bottom:0;"><button class="btn-admin" style="width: auto; padding: 0 15px;" onclick="window.searchStaffActivity()"><i class="fa-solid fa-magnifying-glass"></i></button></div></div></div>
+                <div id="staffResultArea" style="display:none; font-size:12px;"><div style="font-weight: bold; color: var(--admin-accent); margin-bottom: 10px;">Activity for: <span id="resStaffEmail"></span></div><div style="background: rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:10px;"><div style="font-weight:bold; color:var(--info); margin-bottom:5px;">Matches Created</div><div id="staffTourneyBody" style="color:var(--text-sub);"></div></div><div style="background: rgba(0,0,0,0.2); padding:10px; border-radius:8px;"><div style="font-weight:bold; color:var(--warning); margin-bottom:5px;">Prizes Distributed</div><div id="staffPrizeBody" style="color:var(--text-sub);"></div></div></div>
+            </div>
+
+            <div id="sec-Themes" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size:16px;">App Themes</h3><div style="font-size: 11px; color: var(--text-sub); margin-bottom: 15px;">Theme will update instantly in User App.</div>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                    <div class="theme-card" id="theme-orange" onclick="window.applyTheme('orange')" style="background:linear-gradient(45deg, #1a1a2e, #ff8c00); padding:15px; border-radius:10px; text-align:center; cursor:pointer;"><h4 style="color: white; margin:0;">White & Orange (Default)</h4><div style="font-size: 10px; color: #ccc;" id="status-orange">Click to Apply</div></div>
+                    <div class="theme-card" id="theme-blue" onclick="window.applyTheme('blue')" style="background:linear-gradient(45deg, #1a1a2e, #007bff); padding:15px; border-radius:10px; text-align:center; cursor:pointer;"><h4 style="color: white; margin:0;">White & Blue</h4><div style="font-size: 10px; color: #ccc;" id="status-blue">Click to Apply</div></div>
+                    <div class="theme-card" id="theme-green" onclick="window.applyTheme('green')" style="background:linear-gradient(45deg, #1a1a2e, #28a745); padding:15px; border-radius:10px; text-align:center; cursor:pointer;"><h4 style="color: white; margin:0;">White & Green</h4><div style="font-size: 10px; color: #ccc;" id="status-green">Click to Apply</div></div>
+                </div>
+            </div>
+            
+            <div id="sec-Settings" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size:16px;">App Settings</h3>
+                <div class="form-card active">
+                    <h4 style="color: var(--warning); margin-bottom: 15px;">Core Details</h4>
+                    <div class="form-group"><label class="form-label">Signup Bonus (₹)</label><input type="number" id="setSignupBonus" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">WhatsApp Floating Number</label><input type="number" id="setFloatWa" class="form-input" placeholder="Ex: 9876543210"></div>
+                    
+                    <h4 style="color: var(--info); margin: 15px 0;">Payment Details</h4>
+                    <div class="form-row"><div class="form-group"><label class="form-label">Admin UPI ID</label><input type="text" id="setUpi" class="form-input"></div><div class="form-group"><label class="form-label">Deposit QR Code URL (or Upload)</label><div style="display:flex; gap:5px;"><input type="file" id="setQrFile" accept="image/*" style="width:100px; font-size:9px;" class="form-input"><input type="text" id="setQrUrl" class="form-input" placeholder="Image URL"></div></div></div>
+                    
+                    <h4 style="color: var(--success-btn); margin: 15px 0;">Policies</h4>
+                    <div class="form-group"><label class="form-label">Privacy Policy Text</label><textarea id="setPrivacy" class="form-input"></textarea></div>
+                    <div class="form-group"><label class="form-label">Fair Play Policy Text</label><textarea id="setFairPlay" class="form-input"></textarea></div>
+                    <button class="btn-success" id="saveCoreBtn" onclick="window.saveSettingsGen()">Save Settings</button>
+                </div>
+            </div>
+
+            <div id="sec-HelpLinks" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size:16px;">Social Links</h3>
+                <div class="form-card active">
+                    <div class="form-group"><label class="form-label">WhatsApp Channel/Group Link</label><input type="text" id="socWhatsapp" class="form-input" placeholder="https://chat.whatsapp.com/..."></div>
+                    <div class="form-group"><label class="form-label">Instagram Link</label><input type="text" id="socInstagram" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Discord Link</label><input type="text" id="socDiscord" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Telegram Link</label><input type="text" id="socTelegram" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">YouTube Link</label><input type="text" id="socYoutube" class="form-input"></div>
+                    <button class="btn-success" onclick="window.saveSocialLinks()">Save Links</button>
+                </div>
+            </div>
+
+            <div id="sec-AppUpdate" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size:16px;">App Update Version</h3>
+                <div class="form-card active">
+                    <div class="form-group" style="background:rgba(239,68,68,0.1); padding:10px; border-radius:8px; border:1px solid var(--primary-red);">
+                        <label class="form-label" style="color:var(--primary-red);">Current App Version</label>
+                        <input type="number" id="sAppVer" class="form-input" style="margin-bottom:5px;">
+                        <div style="font-size:10px; color:var(--text-sub);">Change number to force update user apps.</div>
+                    </div>
+                    <div class="form-group"><label class="form-label">Update Link (Playstore/Drive)</label><input type="text" id="sUpdateLink" class="form-input"></div>
+                    <button class="btn-success" onclick="window.saveSettingsStatus()">Save Updates Config</button>
+                </div>
+            </div>
+
+            <div id="sec-ZapUPI" class="admin-section">
+                <h3 style="margin-bottom: 15px; font-size:16px;"><i class="fa-solid fa-bolt" style="color:var(--info);"></i> Deposit Zap UPI Config</h3>
+                <div class="form-card active">
+                    <p style="font-size:11px; color:var(--text-sub); margin-bottom:15px;">Setup Zap UPI API keys here. If not configured, users will be instructed to use Manual Screenshot Verification instead.</p>
+                    <div class="form-group"><label class="form-label"></label><input type="text" id="setZapKey" class="form-input" placeholder="Enter Zap Gateway Key"></div>
+                    <button class="btn-success" onclick="window.saveZapApi()"> fire Configuration</button>
+                </div>
+            </div>
+
+        </div> 
+    </div> 
+        
+    <div id="adminProfileModal" class="modal-overlay">
+        <div class="modal-content" style="border-color: var(--admin-accent);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="font-size:16px; color:var(--text-main);">Admin Setup</h3>
+                <i class="fa-solid fa-xmark" style="font-size:18px; color:var(--text-sub); cursor:pointer;" onclick="window.closeModal('adminProfileModal')"></i>
+            </div>
+            
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="font-size: 24px; color: var(--text-main); margin-bottom: 5px;">🌐</div>
+                <div style="font-size: 11px; color: var(--text-sub);" id="modAdminEmail">admin@gmail.com</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">App Name</label>
+                <input type="text" id="setAppNameModal" class="form-input" placeholder="Enter App Name">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">App Logo (Upload Image)</label>
+                <input type="file" id="setLogoFile" class="form-input" accept="image/*" style="margin-bottom: 5px;">
+                <input type="text" id="setLogoUrlModal" class="form-input" placeholder="Or enter direct image URL..." style="display:none;">
+            </div>
+
+            <button class="btn-outline" style="margin-bottom: 15px;" onclick="window.saveAppSetup()"><i class="fa-solid fa-floppy-disk"></i> Save Setup</button>
+            
+            <hr style="border:0; border-top:1px dashed rgba(255,255,255,0.1); margin: 20px 0;">
+            
+            <h4 style="font-size:13px; color:var(--warning); margin-bottom:10px;"><i class="fa-solid fa-lock"></i> Direct Password Change</h4>
+            <div class="form-group">
+                <input type="password" id="directNewPass" class="form-input" placeholder="Enter New Password (Min 6)" style="margin-bottom: 10px;">
+                <button class="btn-admin" style="background:var(--warning); width:100%;" onclick="window.changeAdminPassword()">Set New Password</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="osSetModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 style="font-size:15px; color:var(--admin-accent);"><i class="fa-solid fa-bell"></i>  O </h3><i class="fa-solid fa-xmark close-modal" onclick="window.closeModal('osSetModal')" style="cursor:pointer;"></i></div>
+            <p style="font-size:11px; color:gray; margin-bottom:15px;"> . This is required for sending push notifications automatically to User App.</p>
+            <div class="form-group"><label class="form-label"> future notifications </label><input type="text" id="osAppId" class="form-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
+            <div class="form-group"><label class="form-label">  FUTURE updates </label><input type="text" id="osRestKey" class="form-input" placeholder="os_v2_app_xxxxxxxxxxxxxxxxx..."></div>
+            <button class="btn-success" onclick="window.saveOneSignalKeys()"><i class="fa-solid fa-floppy-disk"></i> Save Push Config</button>
+        </div>
+    </div>
+
+    <div id="depSetModal" class="modal-overlay"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 style="font-size:15px; color:var(--info);">Deposit Settings</h3><i class="fa-solid fa-xmark close-modal" onclick="window.closeModal('depSetModal')" style="cursor:pointer;"></i></div><div class="form-group"><label class="form-label">Minimum Deposit (₹)</label><input type="number" id="setMinDepModal" class="form-input"></div><div class="form-group"><label class="form-label">Maximum Deposit (₹)</label><input type="number" id="setMaxDepModal" class="form-input"></div><button class="btn-success" onclick="window.saveLimits('dep')">Save Limits</button></div></div>
+    <div id="widSetModal" class="modal-overlay"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 style="font-size:15px; color:var(--info);">Withdraw Settings</h3><i class="fa-solid fa-xmark close-modal" onclick="window.closeModal('widSetModal')" style="cursor:pointer;"></i></div><div class="form-group"><label class="form-label">Minimum Withdraw (₹)</label><input type="number" id="setMinWidModal" class="form-input"></div><div class="form-group"><label class="form-label">Maximum Withdraw (₹)</label><input type="number" id="setMaxWidModal" class="form-input"></div><button class="btn-success" onclick="window.saveLimits('wid')">Save Limits</button></div></div>
+    <div id="storePricingModal" class="modal-overlay"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 style="font-size:15px; color:var(--vip);">Store Items Price</h3><i class="fa-solid fa-xmark close-modal" onclick="window.closeModal('storePricingModal')" style="cursor:pointer;"></i></div><div class="form-group"><label class="form-label">Weekly VIP (₹)</label><input type="number" id="pWeekly" class="form-input"></div><div class="form-group"><label class="form-label">Monthly VIP (₹)</label><input type="number" id="pMonthly" class="form-input"></div><div class="form-group"><label class="form-label">Gold Crown (₹)</label><input type="number" id="pCrown" class="form-input"></div><div class="form-group"><label class="form-label">Blue Tick (₹)</label><input type="number" id="pTick" class="form-input"></div><div class="form-group"><label class="form-label">Avatar Change (₹)</label><input type="number" id="pAvatar" class="form-input"></div><button class="btn-success" onclick="window.saveStorePricing()">Save Pricing</button></div></div>
+    <div id="joinedPlayersModal" class="modal-overlay"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 style="font-size:15px; color:var(--info);">Joined Players Details</h3><i class="fa-solid fa-xmark close-modal" onclick="window.closeModal('joinedPlayersModal')" style="cursor:pointer;"></i></div><div id="jpListBody" style="max-height: 300px; overflow-y:auto;"></div></div></div>
+
+    <div id="userModal" class="modal-overlay"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 style="font-size:15px; color:var(--info);">Edit User Profile</h3><i class="fa-solid fa-xmark close-modal" onclick="window.closeModal('userModal')" style="cursor:pointer;"></i></div><div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between;"><div><div style="font-weight:bold; color:var(--text-main);" id="uEditName">Name</div><div style="font-size:10px; color:var(--text-sub);" id="uEditEmail">Email</div></div><div style="text-align:right;"><div style="font-size:11px; font-weight:bold; color:var(--warning);" id="uEditRank">Bronze</div><div style="font-size:10px; color:var(--text-sub);" id="uEditLvl">Lv. 0</div></div></div><div class="form-row"><div class="form-group"><label class="form-label" style="color:var(--success);">Winning Wallet</label><input type="number" id="uWin" class="form-input" style="margin-bottom:0;"></div><div class="form-group"><label class="form-label">Deposit Wallet</label><input type="number" id="uDep" class="form-input" style="margin-bottom:0;"></div><div class="form-group"><label class="form-label" style="color:var(--warning);">Bonus Wallet</label><input type="number" id="uBon" class="form-input" style="margin-bottom:0;"></div><div class="form-group"><label class="form-label">Status</label><select id="uStat" class="form-select" style="margin-bottom:0; padding:10px;"><option value="Active">Active</option><option value="Blocked">Blocked</option></select></div></div><div class="form-group" style="background:rgba(255,215,0,0.1); padding:10px; border-radius:8px; border:1px dashed var(--vip); margin-top:10px;"><label class="form-label" style="color:var(--vip);"><i class="fa-solid fa-crown"></i> Add VIP Access (Days)</label><input type="number" id="uAddVipDays" class="form-input" placeholder="e.g. 30" style="margin-bottom:0;"><div style="font-size:10px; color:var(--text-sub); margin-top:5px;"><span id="uCurVipStat"></span></div></div><div class="form-group" style="background:rgba(239,68,68,0.1); padding:10px; border-radius:8px; border:1px dashed var(--primary-red); margin-top:15px;"><label class="form-label" style="color:var(--primary-red);"><i class="fa-solid fa-triangle-exclamation"></i> Deduct Penalty</label><div class="form-row" style="margin-bottom:5px;"><input type="number" id="uPenAmt" class="form-input" placeholder="Amount (₹)" style="margin-bottom:0;"><select id="uPenWall" class="form-select" style="margin-bottom:0; padding:10px;"><option value="winning">Winning</option><option value="deposit">Deposit</option><option value="bonus">Bonus</option></select></div><input type="text" id="uPenReason" class="form-input" placeholder="Reason for penalty..." style="margin-bottom:10px;"><button class="btn-danger" style="width:100%; padding:10px;" onclick="window.deductUserPenalty()"><i class="fa-solid fa-minus"></i> Cut Penalty</button></div><button class="btn-success" style="margin-top:15px;" onclick="window.saveUserEdits()">Update User Data</button></div></div>
+
+    <script>
+     const firebaseConfig = {
+  apiKey: "AIzaSyDQh4WPGmZ0BZsTZNIISo7eaaeC__vtE7I",
+  authDomain: "new-firex.firebaseapp.com",
+  projectId: "new-firex",
+  storageBucket: "new-firex.firebasestorage.app",
+  messagingSenderId: "694101804542",
+  appId: "1:694101804542:web:5de47bf040fc5fe8ffacaf"
+};  if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        const auth = firebase.auth(); const db = firebase.firestore();
+
+        window.ongoingTournaments = {};
+        window.activeTheme = 'orange'; 
+        let isLoginMode = true;
+        let globalChatUnsub = null;
+        let vipChatUnsub = null;
+
+        function showToast(msg, isError = false) { const toast = document.getElementById('toast'); toast.innerText = msg; toast.style.background = isError ? "var(--primary-red)" : "var(--admin-accent)"; toast.style.display = 'block'; setTimeout(() => { toast.style.display = 'none'; }, 3500); }
+        window.alert = function(msg) { showToast(msg, false); }; 
+        window.openModal = (id) => { document.getElementById(id).style.display = 'flex'; };
+        window.closeModal = (id) => { document.getElementById(id).style.display = 'none'; };
+
+        window.getUserTagsHtml = (u) => {
+            if(!u) return '';
+            let isVip = u.vipExpiry && new Date() < new Date(u.vipExpiry);
+            let hasCrown = u.purchasedItems && u.purchasedItems.includes('gold_crown');
+            let hasTick = u.purchasedItems && u.purchasedItems.includes('blue_tick');
+            let pic = u.profilePic || '';
+            let emoji = u.emoji || '👤';
+            let lvl = u.level || 0;
+            let rank = u.rankName || 'Bronze';
+            
+            let h = `<div class="user-tag-row">`;
+            if(pic) h += `<img src="${pic}" class="user-pic">`; else h += `<span class="emoji-pic">${emoji}</span>`;
+            if(isVip) h += `<span class="tag-vip">VIP</span>`;
+            if(hasCrown) h += `<i class="fa-solid fa-crown tag-crown"></i>`;
+            if(hasTick) h += `<i class="fa-solid fa-circle-check tag-tick"></i>`;
+            h += `<span class="tag-lvl">Lv.${lvl}</span><span class="tag-rank">${rank}</span></div>`;
+            return h;
+        };
+
+        async function checkAdminExists() {
+            try {
+                const s = await db.collection("settings").doc("general").get();
+                if(s.exists && s.data().adminCreated === true) {
+                    isLoginMode = true; document.getElementById('adminLoginBtn').innerText = "LOGIN SECURELY"; document.getElementById('authSubtitle').innerText = "Enter Admin Credentials";
+                } else {
+                    isLoginMode = false; document.getElementById('adminLoginBtn').innerText = "REGISTER AS ADMIN"; document.getElementById('authSubtitle').innerText = "Create Master Admin Account";
+                }
+            } catch(e) { isLoginMode = true; }
+        }
+        checkAdminExists();
+
+        window.handleAuth = async () => {
+            const email = document.getElementById('adminEmailInput').value.trim(); const pass = document.getElementById('adminPassInput').value; const errEl = document.getElementById('authError'); 
+            if(!email || !pass) { errEl.innerText = "Please enter Email and Password!"; errEl.style.display = 'block'; return; } 
+            document.getElementById('adminLoginBtn').innerText = "Processing..."; errEl.style.display = 'none'; 
+            try { 
+                if(isLoginMode) { await auth.signInWithEmailAndPassword(email, pass); } 
+                else { await auth.createUserWithEmailAndPassword(email, pass); await db.collection("settings").doc("general").set({ adminCreated: true }, {merge: true}); alert("Master Admin Created!"); } 
+            } catch(e) { errEl.innerText = e.message; errEl.style.display = 'block'; document.getElementById('adminLoginBtn').innerText = isLoginMode ? "LOGIN SECURELY" : "REGISTER AS ADMIN"; } 
+        };
+
+        auth.onAuthStateChanged(async (user) => {
+            document.getElementById('splashScreen').style.display = 'none';
+            if(user) { 
+                // 🛑 SECURITY CHECK: Verify if this user has Admin/Staff permissions
+                let isAuthorized = false;
+                try {
+                    // Normal users will fail this read due to our strict Firestore Rules
+                    await db.collection("staff_users").limit(1).get();
+                    isAuthorized = true; // Permission Granted!
+                } catch(err) {
+                    isAuthorized = false; // Permission Denied!
+                }
+
+                if (isAuthorized) {
+                    // Admin or Staff
+                    document.getElementById('loginScreen').style.display = 'none'; 
+                    document.getElementById('adminMain').style.display = 'flex'; 
+                    document.getElementById('modAdminEmail').innerText = user.email;
+                    window.fetchAppConfig(); window.simulateLiveUsers(); 
+                } else {
+                    // Reject normal users immediately
+                    await auth.signOut();
+                    const errEl = document.getElementById('authError');
+                    errEl.innerText = "ACCESS DENIED: You are a User, not an Admin/Staff!";
+                    errEl.style.display = 'block';
+                    document.getElementById('adminLoginBtn').innerText = "LOGIN SECURELY";
+                }
+            } else { 
+                document.getElementById('loginScreen').style.display = 'flex'; 
+                document.getElementById('adminMain').style.display = 'none'; 
+                if(globalChatUnsub) { globalChatUnsub(); globalChatUnsub=null; }
+                if(vipChatUnsub) { vipChatUnsub(); vipChatUnsub=null; }
+                checkAdminExists();
+                document.getElementById('adminLoginBtn').innerText = isLoginMode ? "LOGIN SECURELY" : "REGISTER AS ADMIN";
+            }
+        });
+
+        window.logoutAdmin = async () => { if(confirm('Logout?')) { await auth.signOut(); location.reload(); } };
+
+        // CORE PUSH NOTIFICATION ENGINE (ONESIGNAL)
+        window.sendPushGlobal = async (userEmailOrAll, title, message) => {
+            try {
+                const s = await db.collection("settings").doc("onesignal").get();
+                if(!s.exists || !s.data().appId || !s.data().restKey) { console.log("OneSignal not configured"); return; }
+                const d = s.data();
+                let body = { app_id: d.appId, headings: { en: title }, contents: { en: message } };
+                if(userEmailOrAll === 'All') { body.included_segments = ["Subscribed Users"]; }
+                else { body.filters = [{ field: "tag", key: "email", relation: "=", value: userEmailOrAll }]; }
+                await fetch("https://onesignal.com/api/v1/notifications", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Basic " + d.restKey }, body: JSON.stringify(body) });
+            } catch(e) { console.error("Push Error", e); }
+        };
+
+        window.openProfileModal = () => { window.openModal('adminProfileModal'); };
+        window.uploadImage = async (file, folder) => { 
+            const formData = new FormData(); formData.append('image', file); const IMGBB_API_KEY = "" /* removed & rotated */;
+            try { const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData }); const data = await res.json(); if(data.success) return data.data.url; else throw new Error(); } catch (error) { throw error; }
+        };
+
+        window.saveAppSetup = async () => {
+            const nameInp = document.getElementById('setAppNameModal').value; const logoFile = document.getElementById('setLogoFile').files[0]; let logoUrl = document.getElementById('setLogoUrlModal').value;
+            document.body.style.cursor='wait';
+            try {
+                if(logoFile) { logoUrl = await window.uploadImage(logoFile, 'settings'); }
+                let updates = {}; if(nameInp) updates.appName = nameInp; if(logoUrl) updates.logoUrl = logoUrl;
+                if(Object.keys(updates).length > 0) { await db.collection("settings").doc("general").set(updates, {merge: true}); alert("Setup Saved!"); window.fetchAppConfig(); window.closeModal('adminProfileModal'); }
+            } catch(e) { alert("Failed to save."); } document.body.style.cursor='default';
+        };
+
+        window.changeAdminPassword = async () => { 
+            const newPass = document.getElementById('directNewPass').value; if(!newPass || newPass.length < 6) return alert("Enter at least 6 characters."); 
+            try { await auth.currentUser.updatePassword(newPass); alert("Password changed!"); document.getElementById('directNewPass').value = ''; window.closeModal('adminProfileModal'); } 
+            catch(e) { if(e.code === 'auth/requires-recent-login') { alert("Security alert: Please logout and login again."); } else { alert("Error: " + e.message); } } 
+        };
+
+        window.fetchAppConfig = async () => {
+            try {
+                const s = await db.collection("settings").doc("general").get();
+                if(s.exists) {
+                    const d = s.data();
+                    if(d.appName) { document.getElementById('topHeaderName').innerText = d.appName; document.getElementById('setAppNameModal').value = d.appName; }
+                    if(d.logoUrl) { document.getElementById('topHeaderLogo').src = d.logoUrl; document.getElementById('topHeaderLogo').style.display = 'block'; document.getElementById('topHeaderFallback').style.display = 'none'; document.getElementById('setLogoUrlModal').value = d.logoUrl; } 
+                    else { document.getElementById('topHeaderLogo').style.display = 'none'; document.getElementById('topHeaderFallback').style.display = 'block'; }
+                } else { document.getElementById('topHeaderFallback').style.display = 'block'; }
+            } catch(e) {}
+            window.loadDashboardStats();
+        };
+
+        window.toggleSidebar = () => { const s = document.getElementById('sidebar'), o = document.getElementById('sidebarOverlay'); if(s.classList.contains('open')){ s.classList.remove('open'); o.style.display='none'; } else { s.classList.add('open'); o.style.display='block'; } };
+        window.toggleForm = (id) => { document.getElementById(id).classList.toggle('active'); };
+        
+        window.switchTab = (tabId, el) => {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); el.classList.add('active');
+            document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active')); 
+            const targetSec = document.getElementById('sec-' + tabId); if(targetSec) targetSec.classList.add('active');
+            if(window.innerWidth < 768) window.toggleSidebar();
+            
+            if(tabId === 'Dashboard') window.loadDashboardStats();
+            if(tabId === 'AppSchedule') window.fetchAppSchedule();
+            if(tabId === 'StaffSetup') window.fetchStaff();
+            if(tabId === 'Promotions') window.fetchPromos();
+            if(tabId === 'GameCategory') window.fetchGames();
+            if(tabId === 'AddTourney') { window.fetchGamesForDropdown(); window.fetchTournaments(); }
+            if(tabId === 'PrizeDist') window.fetchMgmtTournaments();
+            if(tabId === 'Deposits') window.fetchDepositsNormal();
+            if(tabId === 'Withdraws') window.fetchWithdrawals();
+            if(tabId === 'VipAirdrop') window.fetchAirdrops();
+            if(tabId === 'Users') window.fetchUsers();
+            if(tabId === 'RedeemCode') window.fetchRedeemCodes();
+            if(tabId === 'VipListChat') window.loadVipUsersForDM(); else if(vipChatUnsub) { vipChatUnsub(); vipChatUnsub=null; }
+            if(tabId === 'GlobalChat') window.loadGlobalChat(); else if(globalChatUnsub) { globalChatUnsub(); globalChatUnsub=null; }
+            if(tabId === 'TxnHistory') window.searchUserTransactions();
+            if(tabId === 'Leaderboard') window.loadLeaderboard();
+            if(tabId === 'Referral') window.fetchReferrals();
+            if(tabId === 'Themes') window.fetchActiveTheme();
+            if(tabId === 'Settings' || tabId === 'AppUpdate' || tabId === 'ZapUPI') window.fetchGeneralSettings();
+            if(tabId === 'HelpLinks') window.fetchSocialLinks();
+            if(tabId === 'Notifications') { window.fetchOneSignalKeys(); }
+        };
+
+        window.saveZapApi = async () => { const key = document.getElementById('setZapKey').value; await db.collection("settings").doc("general").set({ zapApiKey: key }, {merge:true}); alert("Zap API Key Saved!"); };
+        window.fetchOneSignalKeys = async () => { const docSnap = await db.collection("settings").doc("onesignal").get(); if(docSnap.exists) { document.getElementById('osAppId').value = docSnap.data().appId || ''; document.getElementById('osRestKey').value = docSnap.data().restKey || ''; } };
+        window.saveOneSignalKeys = async () => { const a = document.getElementById('osAppId').value; const r = document.getElementById('osRestKey').value; await db.collection("settings").doc("onesignal").set({ appId: a, restKey: r }); alert("Push Keys Saved!"); window.closeModal('osSetModal'); };
+
+        window.loadDashboardStats = async () => {
+            document.getElementById('anLoading').style.display = 'block'; document.getElementById('anContent').style.display = 'none';
+            try {
+                const [usersSnap, tourneySnap, depSnap, widSnap, adSnap, staffSnap, txSnap] = await Promise.all([ db.collection("users").get(), db.collection("tournaments").get(), db.collection("deposits").get(), db.collection("withdrawals").get(), db.collection("airdrops").get(), db.collection("staff_users").get(), db.collection("transactions").get() ]);
+                document.getElementById('dTotalUsers').innerText = usersSnap.size; document.getElementById('dTotalMatches').innerText = tourneySnap.size; document.getElementById('dTotalStaff').innerText = staffSnap.size;
+                let vips = 0; usersSnap.forEach(d => { if(d.data().vipExpiry && new Date() < new Date(d.data().vipExpiry)) vips++; }); document.getElementById('dTotalVip').innerText = vips;
+                
+                let pDep = 0, aDep = 0, rDep = 0; depSnap.forEach(d => { const s = d.data().status; if(s === 'Pending') pDep++; else if(s === 'Approved' || s === 'Success') aDep++; else if(s === 'Rejected') rDep++; });
+                document.getElementById('dPendDep').innerText = pDep; document.getElementById('dApprDep').innerText = aDep; document.getElementById('dRejDep').innerText = rDep;
+
+                let pWid = 0, aWid = 0, rWid = 0; widSnap.forEach(d => { const s = d.data().status; if(s === 'Pending') pWid++; else if(s === 'Approved' || s === 'Success') aWid++; else if(s === 'Rejected') rWid++; });
+                document.getElementById('dPendWid').innerText = pWid; document.getElementById('dApprWid').innerText = aWid; document.getElementById('dRejWid').innerText = rWid;
+
+                let pVipAd = 0, aVipAd = 0; adSnap.forEach(d => { const s = d.data().status; if(s === 'Pending') pVipAd++; else if(s === 'Success' || s === 'Approved') aVipAd++; });
+                document.getElementById('dPendVipAirdrop').innerText = pVipAd; document.getElementById('dApprVipAirdrop').innerText = aVipAd;
+
+                // Smart Analytics Engine Calculations
+                let today = new Date(); today.setHours(0,0,0,0);
+                let week = new Date(); week.setDate(week.getDate() - 7);
+                let year = new Date(); year.setMonth(0,1); year.setHours(0,0,0,0);
+
+                let totDep = 0, totWid = 0, vipStoreProf = 0, adProf = 0;
+                let tProf = 0, wProf = 0, yProf = 0;
+
+                txSnap.forEach(d => {
+                    const x = d.data(); const amt = Number(x.amount)||0; const dt = x.date ? x.date.toDate() : new Date(0);
+                    if(x.status==='Success' || x.status==='Approved') {
+                        if(x.type === 'Deposit') totDep += amt;
+                        if(x.type === 'Withdraw') totWid += amt;
+                        if(x.type === 'VIP Purchased' || x.type === 'Store Purchase') vipStoreProf += amt;
+                        if(x.type === 'Airdrop Claimed') adProf += amt;
+                        
+                        if(x.type === 'Deposit') { if(dt >= today) tProf += amt; if(dt >= week) wProf += amt; if(dt >= year) yProf += amt; }
+                        if(x.type === 'Withdraw') { if(dt >= today) tProf -= amt; if(dt >= week) wProf -= amt; if(dt >= year) yProf -= amt; }
+                    }
+                });
+
+                document.getElementById('dWeeklyProfit').innerText = '₹' + wProf;
+                
+                document.getElementById('anVipStore').innerText = '₹' + vipStoreProf;
+                document.getElementById('anAirdrop').innerText = '₹' + adProf;
+                document.getElementById('anToday').innerText = '₹' + tProf;
+                document.getElementById('anWeekly').innerText = '₹' + wProf;
+                document.getElementById('anYearly').innerText = '₹' + yProf;
+                document.getElementById('anTotDep').innerText = '₹' + totDep;
+                document.getElementById('anTotWid').innerText = '₹' + totWid;
+                const netPl = totDep - totWid;
+                document.getElementById('anNetBal').innerText = (netPl >= 0 ? '+' : '-') + '₹' + Math.abs(netPl);
+                document.getElementById('anNetBal').className = netPl >= 0 ? 'val-info' : 'val-err';
+
+                document.getElementById('anLoading').style.display = 'none'; document.getElementById('anContent').style.display = 'block';
+
+            } catch(e) {}
+        };
+        window.simulateLiveUsers = () => { setInterval(() => { const base = 40; const fluc = Math.floor(Math.random() * 10) - 5; document.getElementById('liveUsersCount').innerText = base + fluc; }, 3000); };
+
+        window.toggleScheduleTime = () => { document.getElementById('scheduleTimeBox').style.display = document.getElementById('appStatusSelect').value === 'scheduled' ? 'block' : 'none'; };
+        window.fetchAppSchedule = async () => { const docSnap = await db.collection("settings").doc("appStatus").get(); if(docSnap.exists) { const d = docSnap.data(); document.getElementById('appStatusSelect').value = d.status || 'open'; document.getElementById('schMessage').value = d.message || ''; document.getElementById('schStart').value = d.start || ''; document.getElementById('schEnd').value = d.end || ''; window.toggleScheduleTime(); } };
+        window.saveAppSchedule = async () => { const status = document.getElementById('appStatusSelect').value; const msg = document.getElementById('schMessage').value; const start = document.getElementById('schStart').value; const end = document.getElementById('schEnd').value; if(status === 'scheduled' && (!start || !end)) return alert("Select Start and End times!"); try { await db.collection("settings").doc("appStatus").set({ status: status, message: msg, start: start, end: end, updatedAt: new Date() }); alert("App Status Saved!"); } catch(e) { alert("Failed"); } };
+
+        window.loadGlobalChat = () => {
+            if(!auth.currentUser) return;
+            const box = document.getElementById('globalChatBox'); if(globalChatUnsub) globalChatUnsub();
+            try {
+                globalChatUnsub = db.collection("global_chat").orderBy("timestamp", "asc").onSnapshot((snap) => {
+                    let h = ''; snap.forEach(d => { const c = d.data(); let icon = ''; let cClass = ''; let sName = c.senderName;
+                        if(c.senderType === 'admin') { icon = '🌐 '; cClass = 'admin-msg'; sName = 'ADMIN'; } else if(c.senderType === 'staff') { icon = '🎧 '; cClass = 'staff-msg'; sName = c.senderName + ' (Staff)'; }
+                        const tStr = c.timestamp ? c.timestamp.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+                        let uTags = ''; if(c.userTags) { uTags = `<div style="display:flex; gap:2px; margin-top:2px;">${c.userTags.isVip?'<span class="tag-vip">VIP</span>':''}${c.userTags.hasCrown?'<i class="fa-solid fa-crown tag-crown"></i>':''}${c.userTags.hasTick?'<i class="fa-solid fa-circle-check tag-tick"></i>':''}</div>`; }
+                        h += `<div class="chat-msg ${cClass}"><div class="chat-header">${icon}${sName} • ${tStr}</div><div>${c.text}</div>${uTags}<i class="fa-solid fa-trash del-msg-btn" onclick="window.delDoc('global_chat', '${d.id}')" style="position:absolute; top:5px; right:5px; color:var(--primary-red); cursor:pointer;"></i></div>`;
+                    }); box.innerHTML = h || `<div style="text-align:center; color:gray; font-size:12px; margin-top:20px;">Start chatting globally!</div>`; box.scrollTop = box.scrollHeight;
+                });
+            } catch(e) { console.log(e); box.innerHTML = "Loading chat..."; }
+        };
+        window.sendGlobalChat = async () => { const inp = document.getElementById('globalChatInput'); const txt = inp.value.trim(); if(!txt) return; try { await db.collection("global_chat").add({ senderName: 'Admin', senderType: 'admin', text: txt, timestamp: new Date() }); inp.value = ''; } catch(e) {} };
+
+        window.loadVipUsersForDM = async () => {
+            const s = await db.collection("users").get(); let h = ''; window.vipChatUsers = [];
+            s.forEach(d => { const x = d.data(); if(x.vipExpiry && new Date() < new Date(x.vipExpiry)) { window.vipChatUsers.push({id: d.id, ...x}); h += `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:5px; cursor:pointer;" onclick="window.openVipChat('${d.id}')"><div><div style="font-weight:bold;">${x.ffName}</div>${window.getUserTagsHtml(x)}</div><i class="fa-solid fa-message" style="color:var(--vip);"></i></div>`; } });
+            document.getElementById('vipUserListForChat').innerHTML = h || '<div style="text-align:center; font-size:11px;">No active VIPs found.</div>';
+        };
+        window.openVipChat = (uid) => {
+            const u = window.vipChatUsers.find(x=>x.id===uid); if(!u) return; document.getElementById('vcActiveName').innerHTML = `Chatting with: ${u.ffName} <br>` + window.getUserTagsHtml(u);
+            document.getElementById('vipChatArea').style.display = 'block'; window.currentVipChatId = uid;
+            const box = document.getElementById('vipChatBox'); if(vipChatUnsub) vipChatUnsub();
+            try {
+                vipChatUnsub = db.collection("direct_messages").where("uid", "==", uid).onSnapshot((snap) => {
+                    let msgs = []; snap.forEach(d => msgs.push(d.data())); msgs.sort((a,b) => a.timestamp - b.timestamp);
+                    let h = ''; msgs.forEach(c => { const cClass = c.senderType === 'admin' ? 'admin-msg' : ''; h += `<div class="chat-msg ${cClass}"><div class="chat-header">${c.senderName}</div><div>${c.text}</div></div>`; });
+                    box.innerHTML = h || `<div style="text-align:center; color:gray; font-size:12px; margin-top:20px;">No messages yet.</div>`; box.scrollTop = box.scrollHeight;
+                });
+            } catch(e){}
+        };
+        window.sendVipChat = async () => { const uid = window.currentVipChatId; const inp = document.getElementById('vipChatInput'); const txt = inp.value.trim(); if(!uid || !txt) return; try { await db.collection("direct_messages").add({ uid: uid, senderName: 'Admin Support', senderType: 'admin', text: txt, timestamp: new Date() }); inp.value = ''; window.sendPushGlobal(u.email, "VIP Message Received", "Admin replied to your message. Open app to read.");} catch(e) {} };
+
+        window.saveStaff = async () => {
+            const editId = document.getElementById('staffEditId').value; const sName = document.getElementById('staffNameInput').value.trim(); const sEmail = document.getElementById('staffEmailInput').value.trim(); const sPass = document.getElementById('staffPassInput').value.trim();
+            if(!sName || !sEmail || !sPass) return alert("All fields are required!"); if(sPass.length < 6) return alert("Password must be at least 6 characters");
+            const btn = document.getElementById('saveStaffBtn'); btn.innerText = "Saving..."; btn.disabled = true;
+            try {
+                if(editId) { await db.collection("staff_users").doc(editId).update({ name: sName, email: sEmail, password: sPass }); alert("Staff Updated!"); } 
+                else { const eCheck = await db.collection("staff_users").where("email", "==", sEmail).get(); if(!eCheck.empty) { btn.innerText = "Create Staff"; btn.disabled = false; return alert("Email already exists!"); }
+                    await db.collection("staff_users").add({ name: sName, email: sEmail, password: sPass, createdAt: new Date() }); alert("Staff Created!"); }
+                window.cancelEditStaff(); window.fetchStaff(); document.getElementById('staffForm').classList.remove('active'); window.loadDashboardStats();
+            } catch (e) { alert("Error: " + e.message); } btn.innerText = "Create Staff"; btn.disabled = false;
+        };
+        window.editStaff = async (id) => { const docSnap = await db.collection("staff_users").doc(id).get(); if(docSnap.exists) { document.getElementById('staffEditId').value = id; document.getElementById('staffNameInput').value = docSnap.data().name; document.getElementById('staffEmailInput').value = docSnap.data().email || ''; document.getElementById('staffPassInput').value = docSnap.data().password || ''; document.getElementById('saveStaffBtn').innerText = "Update Staff"; document.getElementById('cancelStaffBtn').style.display = "block"; document.getElementById('staffForm').classList.add('active'); window.scrollTo(0,0); } };
+        window.cancelEditStaff = () => { document.getElementById('staffEditId').value = ''; document.getElementById('staffNameInput').value = ''; document.getElementById('staffEmailInput').value = ''; document.getElementById('staffPassInput').value = ''; document.getElementById('saveStaffBtn').innerText = "Create Staff"; document.getElementById('cancelStaffBtn').style.display = "none"; };
+        window.fetchStaff = async () => { const s = await db.collection("staff_users").get(); let h = ''; s.forEach(d => { const x = d.data(); h += `<tr class="staff-row" data-search="${x.name?.toLowerCase()} ${x.email?.toLowerCase()}"><td><div style="font-weight:bold; color:var(--info);">${x.name}</div><div style="font-size:10px; color:gray;">${x.email}</div></td><td><span style="font-family:monospace; color:var(--warning); font-size:11px;">${x.password}</span></td><td><div style="display:flex; gap:5px;"><button class="btn-outline" style="border-color:var(--warning); color:var(--warning); padding:4px 8px;" onclick="window.editStaff('${d.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn-danger" style="padding:4px 8px;" onclick="window.delDoc('staff_users','${d.id}', window.fetchStaff)"><i class="fa-solid fa-trash"></i></button></div></td></tr>`; }); document.getElementById('staffTableBody').innerHTML = h || "<tr><td colspan='3' style='text-align:center;'>No staff created.</td></tr>"; };
+        window.filterStaffTable = () => { const f = document.getElementById('staffFilterInput').value.toLowerCase(); document.querySelectorAll('.staff-row').forEach(r => { r.style.display = r.getAttribute('data-search').includes(f) ? '' : 'none'; }); };
+        window.searchStaffActivity = async () => { const sInp = document.getElementById('staffSearchInput').value.trim().toLowerCase(); if(!sInp) return alert("Enter Staff Gmail!"); document.getElementById('staffResultArea').style.display = 'none'; document.body.style.cursor = 'wait'; try { const staffSnap = await db.collection("staff_users").get(); let mStaff = null; staffSnap.forEach(d => { if(d.data().email && d.data().email.toLowerCase() === sInp) mStaff = d.data(); }); if(!mStaff) { document.body.style.cursor = 'default'; return alert("Staff not found!"); } document.getElementById('resStaffEmail').innerText = mStaff.email; const tSnap = await db.collection("tournaments").where("staffEmail", "==", mStaff.email).get(); let tHtml = ''; tSnap.forEach(d => { const x = d.data(); tHtml += `<div style="font-size:11px; margin-bottom:5px;">• ${x.name} - ₹${x.pool} (${x.status})</div>`; }); document.getElementById('staffTourneyBody').innerHTML = tHtml || "None"; const pSnap = await db.collection("transactions").where("type", "==", "Prize Distribution").get(); let pHtml = ''; pSnap.forEach(d => { const x = d.data(); if(x.staffEmail === mStaff.email) { pHtml += `<div style="font-size:11px; margin-bottom:5px;">• ${x.matchName||x.desc} : ₹${x.amount}</div>`; } }); document.getElementById('staffPrizeBody').innerHTML = pHtml || "None"; document.getElementById('staffResultArea').style.display = 'block'; } catch (e) {} document.body.style.cursor = 'default'; };
+
+        window.savePromo = async () => { const editId = document.getElementById('promoEditId').value; const b = document.getElementById('uploadPromoBtn'); const f = document.getElementById('promoFile').files[0]; let u = document.getElementById('promoImg').value; const l = document.getElementById('promoLink').value; if (!f && !u && !editId) return alert("Need Image!"); b.innerText = editId ? "Updating..." : "Uploading..."; b.disabled = true; try { if (f) { u = await window.uploadImage(f, 'banners'); } if (editId) { const updateData = { link: l }; if (u) updateData.url = u; await db.collection("admin_banners").doc(editId).update(updateData); } else { await db.collection("admin_banners").add({ url: u, link: l }); } window.cancelEditPromo(); window.fetchPromos(); document.getElementById('promoForm').classList.remove('active'); } catch (e) { alert("Error"); } b.innerText = "Save Banner"; b.disabled = false; };
+        window.editPromo = async (id) => { const docSnap = await db.collection("admin_banners").doc(id).get(); if(docSnap.exists) { const data = docSnap.data(); document.getElementById('promoEditId').value = id; document.getElementById('promoImg').value = data.url || ''; document.getElementById('promoLink').value = data.link || ''; document.getElementById('uploadPromoBtn').innerText = "Update"; document.getElementById('cancelPromoBtn').style.display = "block"; document.getElementById('promoForm').classList.add('active'); window.scrollTo(0,0); } };
+        window.cancelEditPromo = () => { document.getElementById('promoEditId').value = ''; document.getElementById('promoImg').value = ''; document.getElementById('promoFile').value = ''; document.getElementById('promoLink').value = ''; document.getElementById('uploadPromoBtn').innerText = "Save Banner"; document.getElementById('cancelPromoBtn').style.display = "none"; };
+        window.fetchPromos = async () => { const s = await db.collection("admin_banners").get(); let h = ''; s.forEach(d => { h += `<div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(255,255,255,0.05);"><div><img src="${d.data().url}" loading="lazy" height="35" width="70" style="object-fit:cover; border-radius:5px;"><br><span style="font-size:9px; color:var(--text-sub);">${d.data().link||'No Target Link'}</span></div><div style="display:flex; gap:5px;"><button class="btn-outline" style="border-color:var(--warning); color:var(--warning); padding:4px 8px; font-size:10px;" onclick="window.editPromo('${d.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn-danger" style="padding:4px 8px; font-size:10px;" onclick="window.delDoc('admin_banners','${d.id}', window.fetchPromos)"><i class="fa-solid fa-trash"></i></button></div></div>`; }); document.getElementById('promoList').innerHTML = h; };
+
+        window.saveGame = async () => { const editId = document.getElementById('gameEditId').value; const b = document.getElementById('uploadGameBtn'); const n = document.getElementById('gameName').value; const f = document.getElementById('gameFile').files[0]; let u = document.getElementById('gameImg').value; if (!n) return alert("Need Name!"); if (!f && !u && !editId) return alert("Need Image!"); b.innerText = editId ? "Updating..." : "Uploading..."; b.disabled = true; try { if (f) { u = await window.uploadImage(f, 'games'); } if (editId) { const updateData = { name: n }; if (u) updateData.url = u; await db.collection("admin_games").doc(editId).update(updateData); } else { await db.collection("admin_games").add({ name: n, url: u }); } window.cancelEditGame(); window.fetchGames(); window.fetchGamesForDropdown(); document.getElementById('gameForm').classList.remove('active'); } catch (e) { alert("Error"); } b.innerText = "Save Game"; b.disabled = false; };
+        window.editGame = async (id) => { const docSnap = await db.collection("admin_games").doc(id).get(); if(docSnap.exists) { const data = docSnap.data(); document.getElementById('gameEditId').value = id; document.getElementById('gameName').value = data.name || ''; document.getElementById('gameImg').value = data.url || ''; document.getElementById('uploadGameBtn').innerText = "Update"; document.getElementById('cancelGameBtn').style.display = "block"; document.getElementById('gameForm').classList.add('active'); window.scrollTo(0,0); } };
+        window.cancelEditGame = () => { document.getElementById('gameEditId').value = ''; document.getElementById('gameName').value = ''; document.getElementById('gameImg').value = ''; document.getElementById('gameFile').value = ''; document.getElementById('uploadGameBtn').innerText = "Save Game"; document.getElementById('cancelGameBtn').style.display = "none"; };
+        window.fetchGames = async () => { const s = await db.collection("admin_games").get(); let h = ''; s.forEach(d => { h += `<div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:10px; text-align:center; border:1px solid rgba(255,255,255,0.05);"><img src="${d.data().url}" loading="lazy" height="40" style="object-fit:contain; border-radius:5px;"><div style="font-size:11px; margin: 5px 0; font-weight:600;">${d.data().name}</div><div style="display:flex; gap:5px;"><button class="btn-outline" style="border-color:var(--warning); color:var(--warning); flex:1; padding:4px; font-size:10px;" onclick="window.editGame('${d.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn-danger" style="flex:1; padding:4px; font-size:10px;" onclick="window.delDoc('admin_games','${d.id}', window.fetchGames, true)"><i class="fa-solid fa-trash"></i></button></div></div>`; }); document.getElementById('gamesList').innerHTML = h; };
+
+        window.delDoc = async (col, id, cb, isGame = false) => { 
+            if(confirm("Permanently Delete?")) { 
+                if(col === 'tournaments') { if(confirm("Are you sure? This will AUTO REFUND money to all joined users.")) { await window.processRefund(id, "Deleted"); } else { return; } }
+                await db.collection(col).doc(id).delete(); if(cb) cb(); if(isGame) window.fetchGamesForDropdown();
+            } 
+        };
+        window.fetchGamesForDropdown = async () => { const snap = await db.collection("admin_games").get(); let opts = '<option value="">Select Category...</option>'; snap.forEach(d => { opts += `<option value="${d.data().name}">${d.data().name}</option>`; }); document.getElementById('tCategory').innerHTML = opts; };
+
+        // TOURNAMENT WITH IMGBB + PUSH NOTIFS
+        window.saveTournament = async () => { 
+            const editId = document.getElementById('tEditId').value; const newStatus = document.getElementById('tStatus').value;
+            const bFile = document.getElementById('tBannerFile').files[0]; let bUrl = document.getElementById('tBanner').value;
+            document.body.style.cursor='wait'; document.getElementById('tourneySubmitBtn').innerText="Saving...";
+            try {
+                if(bFile) { bUrl = await window.uploadImage(bFile, 'banners'); document.getElementById('tBanner').value = bUrl; }
+                const data = { category: document.getElementById('tCategory').value, name: document.getElementById('tName').value, serial: document.getElementById('tSerial').value, time: document.getElementById('tTime').value, status: newStatus, fee: Number(document.getElementById('tFee').value), pool: Number(document.getElementById('tPool').value), perKill: Number(document.getElementById('tPerKill').value), max: Number(document.getElementById('tMax').value), type: document.getElementById('tType').value, map: document.getElementById('tMap').value, rules: document.getElementById('tRules').value, banner: bUrl, roomId: document.getElementById('tRoomId').value, roomPass: document.getElementById('tRoomPass').value, publishRoom: document.getElementById('tPublishRoom').checked, isVipOnly: document.getElementById('mVip').value === "true", updatedAt: new Date(), staffEmail: 'ADMIN' }; 
+                if(!data.name || !data.category) { document.body.style.cursor='default'; return alert("Category and Name required!"); }
+
+                if(editId) { 
+                    const docSnap = await db.collection("tournaments").doc(editId).get();
+                    if(docSnap.exists) {
+                        const oldData = docSnap.data();
+                        if(oldData.status !== 'Cancelled' && newStatus === 'Cancelled') { 
+                            if(confirm("Marking as Cancelled will AUTO REFUND all joined users. Continue?")) { await window.processRefund(editId, "Cancelled"); window.sendPushGlobal("All", "Match Cancelled", `${data.name} has been cancelled. Entry fee refunded.`); } else { return; } 
+                        }
+                        // Check if publishRoom turned True just now
+                        if(!oldData.publishRoom && data.publishRoom && data.roomId) {
+                            window.sendPushGlobal("All", "Room Details Out! 🔥", `Room ID & Password for ${data.name} are available now.`);
+                        }
+                    }
+                    await db.collection("tournaments").doc(editId).update(data); alert("Match Updated!"); 
+                } else { 
+                    data.joinedUsers = []; data.createdAt = new Date(); await db.collection("tournaments").add(data); 
+                    window.sendPushGlobal("All", "New Tournament Added! 🎮", `Join ${data.name} now! Prize Pool: ₹${data.pool}`);
+                    alert("Created Successfully!"); 
+                } 
+                window.cancelEditTourney(); window.fetchTournaments(); 
+            } catch(e) { alert("Failed to save tournament."); }
+            document.body.style.cursor='default'; document.getElementById('tourneySubmitBtn').innerText="Create";
+        };
+        
+        window.editTournament = async (id) => { const docSnap = await db.collection("tournaments").doc(id).get(); if(docSnap.exists) { const data = docSnap.data(); document.getElementById('tEditId').value = id; document.getElementById('tCategory').value = data.category||''; document.getElementById('tName').value = data.name||''; document.getElementById('tSerial').value = data.serial||''; document.getElementById('tTime').value = data.time||''; document.getElementById('tStatus').value = data.status||'Upcoming'; document.getElementById('tFee').value = data.fee||''; document.getElementById('tPool').value = data.pool||''; document.getElementById('tPerKill').value = data.perKill||''; document.getElementById('tMax').value = data.max||''; document.getElementById('tType').value = data.type||'Solo'; document.getElementById('tMap').value = data.map||''; document.getElementById('tRules').value = data.rules||''; document.getElementById('tBanner').value = data.banner||''; document.getElementById('tRoomId').value = data.roomId||''; document.getElementById('tRoomPass').value = data.roomPass||''; document.getElementById('tPublishRoom').checked = data.publishRoom||false; document.getElementById('mVip').value = data.isVipOnly?"true":"false"; document.getElementById('tourneySubmitBtn').innerText = "Update Match"; document.getElementById('tourneyForm').classList.add('active'); window.scrollTo(0,0); } };
+        window.copyTournament = async (id) => { const docSnap = await db.collection("tournaments").doc(id).get(); if(docSnap.exists) { const data = docSnap.data(); document.getElementById('tEditId').value = ''; document.getElementById('tCategory').value = data.category||''; document.getElementById('tName').value = data.name + ' (Copy)'; document.getElementById('tSerial').value = ''; document.getElementById('tTime').value = data.time||''; document.getElementById('tStatus').value = 'Upcoming'; document.getElementById('tFee').value = data.fee||''; document.getElementById('tPool').value = data.pool||''; document.getElementById('tPerKill').value = data.perKill||''; document.getElementById('tMax').value = data.max||''; document.getElementById('tType').value = data.type||'Solo'; document.getElementById('tMap').value = data.map||''; document.getElementById('tRules').value = data.rules||''; document.getElementById('tBanner').value = data.banner||''; document.getElementById('tRoomId').value = ''; document.getElementById('tRoomPass').value = ''; document.getElementById('tPublishRoom').checked = false; document.getElementById('mVip').value = data.isVipOnly?"true":"false"; document.getElementById('tourneySubmitBtn').innerText = "Create Copy"; document.getElementById('tourneyForm').classList.add('active'); window.scrollTo(0,0); } };
+        window.cancelEditTourney = () => { document.getElementById('tEditId').value = ''; document.getElementById('tCategory').value = ''; document.getElementById('tName').value = ''; document.getElementById('tSerial').value = ''; document.getElementById('tTime').value = ''; document.getElementById('tFee').value = ''; document.getElementById('tPool').value = ''; document.getElementById('tPerKill').value = ''; document.getElementById('tMax').value = ''; document.getElementById('tMap').value = ''; document.getElementById('tRules').value = ''; document.getElementById('tBanner').value = ''; document.getElementById('tBannerFile').value = ''; document.getElementById('tRoomId').value = ''; document.getElementById('tRoomPass').value = ''; document.getElementById('tPublishRoom').checked = false; document.getElementById('mVip').value = "false"; document.getElementById('tourneySubmitBtn').innerText = "Create Match"; document.getElementById('tourneyForm').classList.remove('active'); };
+        
+        window.viewJoinedPlayers = async (id) => {
+            const mSnap = await db.collection("tournaments").doc(id).get(); if(!mSnap.exists) return; const m = mSnap.data();
+            let h = ''; if(m.joinedUsers && m.joinedUsers.length > 0) { 
+                m.joinedUsers.forEach((u,i) => { 
+                    h += `<div style="padding:10px; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:bold; color:var(--admin-accent);">${i+1}. ${u.ffName}</div>
+                                <div style="font-size:10px; color:var(--text-sub);">UID: ${u.ffUid}</div>
+                            </div>
+                            <div style="background:var(--surface-card); padding:5px 10px; border-radius:5px; border:1px solid rgba(255,255,255,0.1); font-size:12px; font-weight:bold;">
+                                Slot: ${u.slot||'N/A'}
+                            </div>
+                          </div>`; 
+                }); 
+            } else { h = '<div style="text-align:center; font-size:11px; padding:20px;">No players joined yet.</div>'; }
+            document.getElementById('jpListBody').innerHTML = h; window.openModal('joinedPlayersModal');
+        }
+
+        window.fetchTournaments = async () => { const snap = await db.collection("tournaments").orderBy("createdAt", "desc").get(); let h = ''; snap.forEach(d => { const x = d.data(); let b = x.status === 'Upcoming' ? 'b-warn' : (x.status === 'Ongoing' ? 'b-info' : (x.status === 'Cancelled' ? 'b-err' : 'b-succ')); const vTag = x.isVipOnly ? `<span class="badge b-vip">VIP</span>` : ''; h += `<tr class="tourney-row" data-search="${x.name?.toLowerCase()} ${x.serial?.toLowerCase()}"><td><div style="font-weight:600;">${x.name} <span style="font-size:9px; color:var(--warning);">[#${x.serial||'N/A'}]</span></div><div style="font-size:10px; color:var(--text-sub);">${x.category}</div></td><td><div style="font-size:11px;">Fee: ₹${x.fee} | Pool: ₹${x.pool}</div><div style="font-size:10px; color:gray;">${x.max} Slots</div></td><td><span class="badge ${b}" style="margin-bottom:3px;">${x.status}</span><br>${vTag}</td><td><div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;"><button class="btn-outline" style="border-color:var(--info); color:var(--info);" onclick="window.viewJoinedPlayers('${d.id}')">Players</button><button class="btn-outline" style="border-color:var(--success-btn); color:var(--success-btn);" onclick="window.copyTournament('${d.id}')">Copy</button><button class="btn-outline" style="border-color:var(--warning); color:var(--warning);" onclick="window.editTournament('${d.id}')">Edit</button><button class="btn-danger" onclick="window.delDoc('tournaments','${d.id}', window.fetchTournaments)">Delete</button></div></td></tr>`; }); document.getElementById('tourneyTableBody').innerHTML = h || "<tr><td colspan='4' style='text-align:center;'>No matches.</td></tr>"; };
+        window.searchTournaments = () => { let f = document.getElementById('tourneySearchInput').value.toLowerCase(); document.querySelectorAll('.tourney-row').forEach(r => { r.style.display = r.getAttribute('data-search').includes(f) ? '' : 'none'; }); };
+        
+        window.fetchMgmtTournaments=async()=>{const s=await db.collection("tournaments").where("status","==","Ongoing").get();let o='<option value="">Select Match...</option>';window.ongoingTournaments={};s.forEach(d=>{const x=d.data(); window.ongoingTournaments[d.id]=x;o+=`<option value="${d.id}">${x.name} | Pool: ₹${x.pool}</option>`;});document.getElementById('mgmtTourneySelect').innerHTML=o;document.getElementById('mgmtPlayersContainer').style.display='none';};
+        window.loadMgmtPlayers=()=>{
+            const i=document.getElementById('mgmtTourneySelect').value; if(!i){document.getElementById('mgmtPlayersContainer').style.display='none';return;}
+            const x=window.ongoingTournaments[i]; const p=Number(x.perKill)||0; let h='';
+            if(x.joinedUsers&&x.joinedUsers.length>0){
+                x.joinedUsers.forEach(u=>{ h+=`<tr class="mgmt-player-row" data-docid="${u.userDocId||u.ffUid}" data-ffname="${u.ffName}" data-uemail="${u.email||'All'}"><td><div style="font-weight:600;">Slot ${u.slot||'0'}: ${u.ffName}</div><div style="font-size:9px; color:var(--text-sub);">UID: ${u.ffUid}</div></td><td><div style="font-size:9px; color:var(--text-sub); margin-bottom:2px;">₹${p}/kill</div><input type="number" class="kill-input form-input" placeholder="0" style="padding:6px; width:45px;" onkeyup="window.calcTotal(this, ${p})"></td><td><input type="number" class="rank-input form-input" placeholder="0" style="padding:6px; width:55px;" onkeyup="window.calcTotal(this, ${p})"></td><td><input type="number" class="extra-input form-input" placeholder="0" style="padding:6px; width:55px;" onkeyup="window.calcTotal(this, ${p})"></td><td><div style="font-weight:bold; color:var(--admin-accent); font-size:13px;">₹<span class="row-total">0</span></div></td></tr>`; });
+            } else { h=`<tr><td colspan='5' style='text-align:center;'>No players joined.</td></tr>`; }
+            document.getElementById('mgmtPlayersBody').innerHTML=h; document.getElementById('mgmtPlayersContainer').style.display='block';
+        };
+        window.calcTotal = (el, pkAmt) => { const row = el.closest('.mgmt-player-row'); const k = Number(row.querySelector('.kill-input').value) || 0; const r = Number(row.querySelector('.rank-input').value) || 0; const ex = Number(row.querySelector('.extra-input').value) || 0; row.querySelector('.row-total').innerText = (k * pkAmt) + r + ex; };
+        window.creditAllWinnings=async()=>{
+            const i=document.getElementById('mgmtTourneySelect').value; if(!i)return; const x=window.ongoingTournaments[i]; const p=Number(x.perKill)||0; const r=document.querySelectorAll('.mgmt-player-row');
+            if(r.length===0||!confirm("Credit winnings and mark as Results?"))return; document.body.style.cursor='wait';
+            try {
+                for(let w of r){
+                    const dId = w.getAttribute('data-docid'); const ffName = w.getAttribute('data-ffname'); const k = Number(w.querySelector('.kill-input').value)||0; const rankAmt = Number(w.querySelector('.rank-input').value)||0; const ex = Number(w.querySelector('.extra-input').value)||0; const totalWin = (k * p) + rankAmt + ex;
+                    if(totalWin > 0 && dId){
+                        await db.collection("users").doc(dId).update({"wallets.winning":firebase.firestore.FieldValue.increment(totalWin)});
+                        await db.collection("transactions").add({ userId: dId, type: "Prize Distribution", matchName: x.name, desc: `Won in ${x.name}`, amount: totalWin, status: "Success", date: new Date(), staffEmail: 'ADMIN' });
+                        await db.collection("notifications").add({ targetUser: ffName, title: "Winnings Credited! 🏆", body: `You won ₹${totalWin} in ${x.name}.`, category: "Alert", createdAt: new Date() });
+                    }
+                }
+                await db.collection("tournaments").doc(i).update({status:'Results'}); alert("Winnings Credited!"); window.fetchMgmtTournaments(); window.loadDashboardStats();
+            }catch(e){} document.body.style.cursor='default';
+        };
+
+        window.fetchUsers = async () => { 
+            try { const snap = await db.collection("users").orderBy("createdAt", "desc").limit(50).get(); let h = ''; window.allUsers = []; snap.forEach(d => { const x = d.data(); window.allUsers.push({id: d.id, ...x}); const balStr = `<span style="color:var(--success-btn)">W: ₹${x.wallets?.winning||0}</span><br><span style="color:var(--text-main)">D: ₹${x.wallets?.deposit||0}</span><br><span style="color:var(--warning)">B: ₹${x.wallets?.bonus||0}</span>`; const sTag = x.status==='Blocked' ? `<span class="badge b-err">Blocked</span>` : `<span class="badge b-succ">Active</span>`; h += `<tr class="user-row" data-search="${x.email?.toLowerCase()} ${x.ffName?.toLowerCase()} ${d.id.toLowerCase()}"><td><div style="font-weight:bold;">${x.ffName||'User'}</div><div style="font-size:9px; color:var(--text-sub);">${x.email}</div>${window.getUserTagsHtml(x)}</td><td><div style="font-size:11px;">${balStr}</div></td><td>${sTag}</td><td><button class="btn-outline" style="border-color:var(--info); color:var(--info); padding:4px 8px; margin-bottom:5px; width:100%;" onclick="window.editUser('${d.id}')">Manage</button></td></tr>`; }); document.getElementById('usersTableBody').innerHTML = h || "<tr><td colspan='4' style='text-align:center;'>No users</td></tr>"; } catch(e){} 
+        };
+        window.filterUsers=()=>{let f=document.getElementById('userSearch').value.toLowerCase();document.querySelectorAll('.user-row').forEach(r=>{r.style.display=r.getAttribute('data-search').includes(f)?'':'none';});};
+        window.editUser = (id) => { const u = window.allUsers.find(x=>x.id===id); if(u) { window.editUserId = id; document.getElementById('uEditName').innerText = u.ffName; document.getElementById('uEditEmail').innerText = u.email; document.getElementById('uWin').value=u.wallets?.winning||0; document.getElementById('uDep').value=u.wallets?.deposit||0; document.getElementById('uBon').value=u.wallets?.bonus||0; document.getElementById('uStat').value=u.status||'Active'; document.getElementById('uAddVipDays').value=''; if(u.vipExpiry && new Date()<new Date(u.vipExpiry)) document.getElementById('uCurVipStat').innerText = 'VIP until: ' + new Date(u.vipExpiry).toLocaleDateString(); else document.getElementById('uCurVipStat').innerText = 'Not VIP.'; document.getElementById('uPenAmt').value=''; document.getElementById('uPenReason').value=''; window.openModal('userModal'); } };
+        window.saveUserEdits = async () => { const id = window.editUserId; if(!id) return; try { let updates = { "wallets.winning": Number(document.getElementById('uWin').value), "wallets.deposit": Number(document.getElementById('uDep').value), "wallets.bonus": Number(document.getElementById('uBon').value), status: document.getElementById('uStat').value }; const vDays = document.getElementById('uAddVipDays').value; if(vDays && Number(vDays)>0) { let exp=new Date(); exp.setDate(exp.getDate() + Number(vDays)); updates.vipExpiry = exp.toISOString(); } await db.collection("users").doc(id).update(updates); alert("User Profile Updated"); window.closeModal('userModal'); window.fetchUsers(); } catch(e){} };
+
+        window.deductUserPenalty = async () => {
+            const id = window.editUserId; if(!id) return;
+            const amt = Number(document.getElementById('uPenAmt').value); const wall = document.getElementById('uPenWall').value; const reason = document.getElementById('uPenReason').value;
+            if(!amt || amt <= 0 || !reason) return alert("Enter valid penalty amount and reason."); if(!confirm(`Deduct ₹${amt} from ${wall} wallet?`)) return;
+            document.body.style.cursor='wait';
+            try {
+                let updates = {}; updates[`wallets.${wall}`] = firebase.firestore.FieldValue.increment(-amt); await db.collection("users").doc(id).update(updates);
+                await db.collection("transactions").add({ userId: id, type: "Penalty", desc: `Admin Deduction: ${reason}`, amount: amt, status: "Success", date: new Date() });
+                const uName = document.getElementById('uEditName').innerText; 
+                await db.collection("notifications").add({ targetUser: uName, title: "Wallet Penalty ⚠️", body: `₹${amt} deducted from your ${wall} wallet. Reason: ${reason}`, category: "Alert", createdAt: new Date() });
+                alert("Penalty Deducted and History Saved!"); document.getElementById('uPenAmt').value=''; document.getElementById('uPenReason').value='';
+                const curVal = Number(document.getElementById(wall === 'winning' ? 'uWin' : (wall === 'deposit' ? 'uDep' : 'uBon')).value); document.getElementById(wall === 'winning' ? 'uWin' : (wall === 'deposit' ? 'uDep' : 'uBon')).value = curVal - amt; window.fetchUsers();
+            } catch(e) { alert("Failed"); } document.body.style.cursor='default';
+        };
+
+        window.fetchDepositsNormal=async()=>{
+            const tb=document.getElementById('depositRequestsBody'); const s=await db.collection("deposits").orderBy("createdAt", "desc").limit(50).get(); let h='';
+            for(let i=0; i<s.docs.length; i++) {
+                const d = s.docs[i]; const x=d.data();
+                if(x.status==='Pending'){
+                    let uData = null; try{ const uSnap = await db.collection("users").doc(x.userId).get(); if(uSnap.exists) uData = uSnap.data(); }catch(e){}
+                    let p=x.type==='UTR'?`<div style="font-family:monospace; font-size:11px; color:var(--warning);">${x.proofUrl||x.utr}</div>`:`<a href="${x.proofUrl}" target="_blank" style="color:var(--info); font-size:11px; text-decoration:underline;">View Img</a>`;
+                    if(x.type === 'Auto Pay (Zap UPI)') p = `<span class="badge b-info">ZAP UPI API</span>`;
+                    h+=`<tr><td><div style="font-weight:bold;">${x.userEmail}</div>${window.getUserTagsHtml(uData)}</td><td><span style="color:var(--success-btn); font-weight:bold; font-size:14px;">₹${x.amount}</span><br><span style="font-size:9px; color:var(--text-sub);">Via ${x.type}</span></td><td>${p}</td><td><div style="display:flex; flex-direction:column; gap:5px;"><button class="btn-success" style="padding:4px 8px; font-size:10px;" onclick="window.approveDeposit('${d.id}', '${x.userId}', ${x.amount}, '${x.userEmail}')">Approve</button><button class="btn-danger" style="padding:4px 8px; font-size:10px;" onclick="window.rejectDeposit('${d.id}', '${x.userEmail}')">Reject</button></div></td></tr>`;
+                }
+            } tb.innerHTML=h||`<tr><td colspan='4' style='text-align:center;'>No pending requests.</td></tr>`;
+        };
+        window.approveDeposit=async(dId,uId,a, uEmail)=>{
+            if(!confirm(`Approve ₹${a}?`))return;
+            try{
+                if(uId){await db.collection("users").doc(uId).update({"wallets.deposit":firebase.firestore.FieldValue.increment(a)});}
+                await db.collection("deposits").doc(dId).update({status:'Approved'});
+                window.sendPushGlobal(uEmail, "Deposit Successful! ✅", `Your deposit request of ₹${a} is approved and added to your wallet.`);
+                window.fetchDepositsNormal(); window.loadDashboardStats();
+            }catch(e){}
+        };
+        window.rejectDeposit=async(dId, uEmail)=>{
+            if(!confirm(`Reject deposit?`))return;
+            try{
+                const r=prompt("Reason:"); 
+                await db.collection("deposits").doc(dId).update({status:'Rejected', rejectReason:r||"Invalid Details"});
+                window.sendPushGlobal(uEmail, "Deposit Rejected ❌", `Your deposit was rejected. Reason: ${r||"Invalid Screenshot/UTR."}`);
+                window.fetchDepositsNormal();
+            }catch(e){}
+        };
+
+        window.fetchWithdrawals=async()=>{
+            const tb=document.getElementById('withdrawRequestsBody');
+            const s=await db.collection("withdrawals").orderBy("createdAt", "desc").limit(50).get(); 
+            let h='';
+            s.forEach(d=>{
+                const x=d.data();
+                if(x.status==='Pending'){
+                    let uMethod = x.upiId === 'PLAYSTORE REDEEM CODE' ? `<span class="badge b-warn">Playstore Code</span>` : `<span class="badge b-succ">UPI Transfer</span>`;
+                    h += `<tr>
+                            <td><div style="font-weight:bold;">${x.userEmail}</div></td>
+                            <td><span style="color:var(--primary-red); font-weight:bold; font-size:14px;">₹${x.amount}</span><br>${uMethod}</td>
+                            <td><div style="font-size:10px; color:var(--info); font-family:monospace;">${x.upiId}</div><div style="font-size:10px; color:var(--text-sub);">${x.accountName}</div></td>
+                            <td>
+                                <div style="display:flex; flex-direction:column; gap:5px;">
+                                    <button class="btn-success" style="padding:4px 8px; font-size:10px;" onclick="window.actWid('${d.id}','${x.userId}',${x.amount},'Approve', '${x.upiId}', '${x.userEmail}')">Send/Approve</button>
+                                    <button class="btn-danger" style="padding:4px 8px; font-size:10px;" onclick="window.actWid('${d.id}','${x.userId}',${x.amount},'Reject', '${x.upiId}', '${x.userEmail}')">Reject</button>
+                                </div>
+                            </td>
+                          </tr>`;
+                }
+            });
+            tb.innerHTML=h||`<tr><td colspan='4' style='text-align:center;'>No pending withdraw requests.</td></tr>`;
+        };
+        
+        window.actWid = async (docId, uid, amt, type, upiMethod, userEmail) => {
+            if(!confirm(`${type} withdrawal of ₹${amt}?`)) return;
+            try {
+                if(type === 'Approve') {
+                    let rCode = null;
+                    if (upiMethod === 'PLAYSTORE REDEEM CODE') {
+                        rCode = prompt("Enter the Playstore Redeem Code to send to the user:");
+                        if (!rCode) return alert("You must enter a redeem code to approve this request!");
+                    }
+                    
+                    let updates = { status: "Success" };
+                    if (rCode) updates.redeemCodeSent = rCode;
+                    await db.collection("withdrawals").doc(docId).update(updates);
+                    
+                    const uSnap = await db.collection("users").doc(uid).get();
+                    if(uSnap.exists) {
+                        if (rCode) {
+                            await db.collection("notifications").add({ category: "Redeem", targetUser: uSnap.data().ffName, title: "Withdrawal Approved 🎁", body: `Your withdraw of ₹${amt} is successful! Check history for Code.`, code: rCode, createdAt: new Date() });
+                            window.sendPushGlobal(userEmail, "Playstore Code Ready 🎁", `Your withdraw of ₹${amt} is approved! Your Redeem code is: ${rCode}`);
+                        } else {
+                            await db.collection("notifications").add({ category: "Alert", targetUser: uSnap.data().ffName, title: "Withdrawal Successful 💰", body: `₹${amt} sent to your account.`, createdAt: new Date() });
+                            window.sendPushGlobal(userEmail, "Withdrawal Approved 💸", `₹${amt} has been successfully sent to your UPI.`);
+                        }
+                    }
+                    window.loadDashboardStats();
+                } else {
+                    const r = prompt("Reason for rejection (Money will be automatically refunded):");
+                    await db.collection("withdrawals").doc(docId).update({ status: "Rejected", rejectReason: r || "Invalid Details provided" });
+                    await db.collection("users").doc(uid).update({ "wallets.winning": firebase.firestore.FieldValue.increment(Number(amt)) });
+                    await db.collection("transactions").add({ userId: uid, type: "Refund", desc: "Withdrawal Rejected", amount: Number(amt), status: "Success", date: new Date() });
+                    
+                    const uSnap = await db.collection("users").doc(uid).get();
+                    if(uSnap.exists) {
+                        await db.collection("notifications").add({ category: "Alert", targetUser: uSnap.data().ffName, title: "Withdrawal Rejected ❌", body: `Your withdraw of ₹${amt} was rejected. Reason: ${r||"Invalid Details"}. Amount refunded.`, createdAt: new Date() });
+                        window.sendPushGlobal(userEmail, "Withdrawal Rejected ❌", `Your withdraw request was rejected. Amount has been refunded. Reason: ${r||"Invalid Details"}`);
+                    }
+                }
+                alert("Withdrawal Updated"); window.fetchWithdrawals();
+            } catch(e) { alert("Error processing"); console.error(e); }
+        };
+
+        window.saveLimits = async (type) => {
+            let updates = {};
+            if(type === 'dep') { updates.minDeposit = Number(document.getElementById('setMinDepModal').value); updates.maxDeposit = Number(document.getElementById('setMaxDepModal').value); window.closeModal('depSetModal'); }
+            if(type === 'wid') { updates.minWithdraw = Number(document.getElementById('setMinWidModal').value); updates.maxWithdraw = Number(document.getElementById('setMaxWidModal').value); window.closeModal('widSetModal'); }
+            try { await db.collection("settings").doc("general").set(updates, {merge:true}); alert("Limits Saved!"); } catch(e){}
+        };
+
+        window.fetchAirdrops=async()=>{
+            const vBody = document.getElementById('vipVerBody'); const aBody = document.getElementById('airdropVerBody');
+            const as=await db.collection("airdrops").orderBy("createdAt", "desc").limit(50).get(); let vh=''; let ah='';
+            as.forEach(d=>{const x=d.data();if(x.status==='Pending'){
+                let p=x.proofType==='Screenshot'?`<a href="${x.utr}" target="_blank" style="color:var(--info); font-size:11px;">View Img</a>`:`<div style="font-family:monospace; font-size:11px; color:var(--warning);">${x.utr}</div>`;
+                let row = `<tr><td><div style="font-weight:bold;">${x.userEmail}</div></td><td><span class="badge b-vip">${x.offerType}</span><br><span style="color:var(--success-btn); font-weight:bold; font-size:14px;">₹${x.amountPaid}</span></td><td>${p}</td><td><div style="display:flex; flex-direction:column; gap:5px;"><button class="btn-success" style="padding:4px 8px; font-size:10px;" onclick="window.actAirdrop('${d.id}', '${x.userId}', '${x.offerType}', ${x.amountPaid})">Approve</button><button class="btn-danger" style="padding:4px 8px; font-size:10px;" onclick="window.actAirdropReject('${d.id}')">Reject</button></div></td></tr>`;
+                if(x.offerType.includes('VIP')) vh += row; else ah += row;
+            }});
+            vBody.innerHTML=vh||`<tr><td colspan='4' style='text-align:center;'>No VIP requests.</td></tr>`;
+            aBody.innerHTML=ah||`<tr><td colspan='4' style='text-align:center;'>No Airdrop requests.</td></tr>`;
+        };
+        window.actAirdrop = async (docId, uid, offerType, paidAmt) => {
+            if(!confirm(`Approve: ${offerType}?`)) return;
+            try {
+                let uUpdates = {}; let transDesc = ""; let transAmt = 0;
+                if(offerType === 'Deposit30') { uUpdates["wallets.deposit"] = firebase.firestore.FieldValue.increment(35); transDesc = "Airdrop (Pay 30, Get 35)"; transAmt = 35; }
+                else if(offerType === 'Deposit50') { uUpdates["wallets.deposit"] = firebase.firestore.FieldValue.increment(60); transDesc = "Airdrop (Pay 50, Get 60)"; transAmt = 60; }
+                else if(offerType === 'VIPDiscount' || offerType === 'VIP_Weekly' || offerType === 'VIP_Monthly') { 
+                    const uDoc = await db.collection("users").doc(uid).get(); const d = uDoc.data(); let exp = new Date(); if(d.vipExpiry && new Date(d.vipExpiry) > new Date()) exp = new Date(d.vipExpiry);
+                    exp.setDate(exp.getDate() + (offerType.includes('Monthly')?30:7)); uUpdates.vipExpiry = exp.toISOString(); transDesc = `VIP Pass (${offerType})`; transAmt = paidAmt; 
+                }
+                else if(offerType === 'CrownDiscount' || offerType === 'Gold_Crown') { let exp = new Date(); exp.setMonth(exp.getMonth() + 1); uUpdates["purchasedItemExpiries.gold_crown"] = exp.toISOString(); uUpdates.purchasedItems = firebase.firestore.FieldValue.arrayUnion("gold_crown"); transDesc = "Gold Crown Unlock"; transAmt = paidAmt; }
+                else if(offerType === 'TickDiscount' || offerType === 'Blue_Tick') { let exp = new Date(); exp.setMonth(exp.getMonth() + 1); uUpdates["purchasedItemExpiries.blue_tick"] = exp.toISOString(); uUpdates.purchasedItems = firebase.firestore.FieldValue.arrayUnion("blue_tick"); transDesc = "Blue Tick Unlock"; transAmt = paidAmt; }
+                else if(offerType === 'AvatarDiscount' || offerType === 'Avatar_Upload') { let exp = new Date(); exp.setMonth(exp.getMonth() + 1); uUpdates["purchasedItemExpiries.avatar_upload"] = exp.toISOString(); uUpdates.purchasedItems = firebase.firestore.FieldValue.arrayUnion("avatar_upload"); transDesc = "Avatar Unlock"; transAmt = paidAmt; }
+                
+                if(Object.keys(uUpdates).length > 0) await db.collection("users").doc(uid).update(uUpdates);
+                await db.collection("airdrops").doc(docId).update({ status: "Success" });
+                await db.collection("transactions").add({ userId: uid, type: offerType.includes('VIP')?"VIP Purchased":"Airdrop Claimed", desc: transDesc, amount: transAmt, status: "Success", date: new Date() });
+                alert("Approved!"); window.fetchAirdrops();
+            } catch(e){ alert("Error"); }
+        };
+        window.actAirdropReject = async (docId) => { const r = prompt("Reason for rejection:"); if(r) { await db.collection("airdrops").doc(docId).update({ status: "Rejected", rejectReason: r }); window.fetchAirdrops(); } };
+        window.saveStorePricing = async () => { try { await db.collection("settings").doc("pricing").set({ vipWeekly: Number(document.getElementById('pWeekly').value)||49, vipMonthly: Number(document.getElementById('pMonthly').value)||149, itemCrown: Number(document.getElementById('pCrown').value)||20, itemTick: Number(document.getElementById('pTick').value)||20, itemAvatar: Number(document.getElementById('pAvatar').value)||15 }); alert("Pricing Saved!"); window.closeModal('storePricingModal'); } catch(e){} };
+
+        window.togglePersonalNotif = () => { document.getElementById('personalUserInput').style.display = document.getElementById('notifType').value === 'Personal' ? 'block' : 'none'; };
+        window.toggleRedeemBox = () => { document.getElementById('redeemCodeBox').style.display = document.getElementById('notifCategory').value === 'Redeem' ? 'block' : 'none'; };
+        window.sendNotificationManual=async()=>{
+            const c=document.getElementById('notifCategory').value, t=document.getElementById('notifType').value, tu=document.getElementById('notifUser').value.trim(), ti=document.getElementById('notifTitle').value, b=document.getElementById('notifBody').value, co=document.getElementById('notifCode').value;
+            if(!ti||!b) return alert("Title and Body required!"); if(t==='Personal'&&!tu) return alert("Enter Target User Email"); if(c==='Redeem'&&!co) return alert("Please enter the Redeem Code!");
+            document.body.style.cursor='wait';
+            try {
+                let finalTarget = 'All';
+                if(t === 'Personal') {
+                    const qName = await db.collection("users").where("email", "==", tu).get(); 
+                    if(!qName.empty) { finalTarget = qName.docs[0].data().ffName; } 
+                    else { document.body.style.cursor='default'; return alert("Invalid User Email! User not found."); }
+                }
+                // Save to DB for App UI Notification
+                await db.collection("notifications").add({category:c,type:t,targetUser:finalTarget,title:ti,body:b,code:c==='Redeem'?co:null,createdAt:new Date()});
+                
+                // Send Real Push Notification
+                window.sendPushGlobal(t === 'Personal' ? tu : 'All', ti, b);
+
+                alert("Notification Sent!"); document.getElementById('notifTitle').value=''; document.getElementById('notifBody').value=''; document.getElementById('notifUser').value=''; document.getElementById('notifCode').value='';
+            } catch(e) { alert("Failed."); } document.body.style.cursor='default';
+        };
+
+        window.generateRedeemCodes=async()=>{const pre = document.getElementById('rcPrefix').value || 'TNV'; const c=Number(document.getElementById('rcCount').value);const a=Number(document.getElementById('rcAmount').value);if(!c||!a)return;document.body.style.cursor='wait';try{for(let i=0;i<c;i++){const rs=Math.random().toString(36).substring(2,6).toUpperCase();const code=`${pre}-${a}-${rs}`;await db.collection("redeem_codes").add({code:code,amount:a,status:'Active',createdAt:new Date()});}alert("Codes generated!");document.getElementById('rcCount').value='';document.getElementById('rcAmount').value='';window.fetchRedeemCodes();}catch(e){}document.body.style.cursor='default';};
+        window.fetchRedeemCodes=async()=>{const tb=document.getElementById('redeemCodeBody');const s=await db.collection("redeem_codes").orderBy("createdAt","desc").get();let h='';s.forEach(d=>{const x=d.data();const c=x.status==='Active'?'b-succ':'b-err';h+=`<tr><td><span style="font-family:monospace; font-size:12px; color:var(--warning);">${x.code}</span></td><td><span style="color:var(--admin-accent); font-weight:bold;">₹${x.amount}</span></td><td><span class="badge ${c}">${x.status}</span><div style="font-size:9px; color:gray;">${x.usedBy||'-'}</div></td><td><div style="display:flex; gap:5px;"><button class="btn-outline" style="padding:4px;" onclick="navigator.clipboard.writeText('${x.code}'); alert('Copied');"><i class="fa-solid fa-copy"></i></button><button class="btn-danger" style="padding:4px 8px; font-size:10px; width:auto;" onclick="window.delDoc('redeem_codes','${d.id}', window.fetchRedeemCodes)"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;});tb.innerHTML=h||"<tr><td colspan='4' style='text-align:center;'>No codes.</td></tr>";};
+        
+        window.searchUserTransactions=async()=>{
+            const s=document.getElementById('txnSearchInput').value.trim(); const tb=document.getElementById('userTxnBody'); if(!s) return alert("Enter User UID or Email");
+            tb.innerHTML='<tr><td colspan="4" style="text-align:center;">Searching...</td></tr>';
+            try{
+                let tId=s; if(s.includes('@')){ const us=await db.collection("users").where("email","==",s).get(); if(!us.empty){ tId=us.docs[0].id; } else { tb.innerHTML="<tr><td colspan='4' style='text-align:center; color:var(--warning);'>User not found.</td></tr>";return; } }
+                const [ds,ws,ts,rs]=await Promise.all([db.collection("deposits").where("userId","==",tId).get(),db.collection("withdrawals").where("userId","==",tId).get(),db.collection("transactions").where("userId","==",tId).get(),db.collection("referrals").where("referrerUid","==",tId).get()]);
+                let at=[]; ts.forEach(d=>{ const x=d.data(); if(x.type !== 'Deposit Req' && x.type !== 'Withdraw Req') { at.push({...x, tType: x.type, d: x.date?.toDate() || x.createdAt?.toDate() || new Date()}); } });
+                ds.forEach(d=>{ const x=d.data(); let desc = `Via ${x.type}`; if(x.status === 'Rejected' && x.rejectReason) desc += ` (Reason: ${x.rejectReason})`; at.push({...x,tType:'Deposit', desc: desc, d:x.createdAt?.toDate()||new Date(), isPlus: true}); });
+                ws.forEach(d=>{ const x=d.data(); let desc = `To ${x.upiId}`; if(x.status === 'Rejected' && x.rejectReason) desc += ` (Reason: ${x.rejectReason})`; at.push({...x,tType:'Withdraw', desc: desc, d:x.createdAt?.toDate()||new Date(), isMinus: true}); });
+                const refSetSnap = await db.collection("settings").doc("referral").get(); const refBonus = refSetSnap.exists ? refSetSnap.data().bonusAmount : 0;
+                rs.forEach(d=>{ const x=d.data(); if(x.status === 'Approved') { at.push({...x, tType: 'Referral Bonus', desc: `Referred ${x.refereeName}`, amount: refBonus, status: 'Success', d: x.createdAt?.toDate() || new Date(), isPlus: true}); } });
+                at.sort((a,b)=>b.d-a.d); let h='';
+                at.forEach(t=>{ const ds=t.d.toLocaleDateString(); const sc = (t.status === 'Approved' || t.status === 'Success') ? 'var(--admin-accent)' : ((t.status === 'Pending') ? 'var(--warning)' : 'var(--primary-red)'); let sign = ''; let color = 'white'; if(t.isPlus || t.tType === 'Redeem Code' || t.tType === 'Signup Bonus' || t.tType === 'Prize Distribution' || t.tType === 'Deposit' || t.tType === 'Referral Bonus' || t.tType === 'Refund' || t.tType === 'Admin Add') { sign = '+'; color = 'var(--admin-accent)'; } else if(t.isMinus || t.tType === 'Match Entry' || t.tType === 'Withdraw' || t.tType === 'VIP Purchased' || t.tType === 'Password Change Fee' || t.tType === 'Penalty') { sign = '-'; color = 'var(--primary-red)'; } h+=`<tr><td><div style="font-size:9px; color:gray;">${ds}</div></td><td><div style="font-weight:bold; font-size:11px;">${t.tType}</div></td><td><span style="color:${color}; font-weight:bold; font-size:12px;">${sign}₹${t.amount||0}</span></td><td><span style="color:${sc}; font-size:9px; font-weight:bold;">${t.status||'Success'}</span></td></tr>`; });
+                tb.innerHTML=h||"<tr><td colspan='4' style='text-align:center;'>No history.</td></tr>";
+            }catch(e){ tb.innerHTML="<tr><td colspan='4' style='text-align:center; color:var(--primary-red);'>Error fetching history.</td></tr>"; }
+        };
+
+        window.toggleLbMode=()=>{const a=document.getElementById('lbModeToggle').checked;document.getElementById('lbModeText').innerText=a?"Auto":"Manual";document.getElementById('manualLbForm').style.display=a?"none":"block";document.getElementById('lbActionHeader').style.display=a?"none":"table-cell";window.loadLeaderboard();};
+        window.loadLeaderboard=async()=>{const a=document.getElementById('lbModeToggle').checked;const tb=document.getElementById('leaderboardBody');tb.innerHTML='<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';try{let h='';if(a){const s=await db.collection("users").orderBy("wallets.winning","desc").limit(100).get();let r=1;s.forEach(d=>{const x=d.data();h+=`<tr><td><h3 style="color:${r===1?'#ffd700':(r===2?'#c0c0c0':(r===3?'#cd7f32':'white'))}">${r}</h3></td><td><div style="font-weight:bold;">${x.ffName||'Unknown'}</div>${window.getUserTagsHtml(x)}</td><td style="color:var(--admin-accent); font-weight:bold;">₹${x.wallets?.winning||0}</td></tr>`;r++;});}else{const s=await db.collection("leaderboard").orderBy("rank","asc").get();s.forEach(d=>{const x=d.data();h+=`<tr><td><h3 style="color:${x.rank==1?'#ffd700':(x.rank==2?'#c0c0c0':(x.rank==3?'#cd7f32':'white'))}">${x.rank}</h3></td><td><div style="font-weight:bold;">${x.name}</div></td><td style="color:var(--admin-accent); font-weight:bold;">₹${x.win}</td><td><button class="btn-danger" onclick="window.delDoc('leaderboard','${d.id}', window.loadLeaderboard)"><i class="fa-solid fa-trash"></i></button></td></tr>`;});}tb.innerHTML=h||'<tr><td colspan="4" style="text-align:center;">No data.</td></tr>';}catch(e){tb.innerHTML="<tr><td colspan='4'>Error</td></tr>";}};
+        window.addManualLeaderboard=async()=>{const r=Number(document.getElementById('mLbRank').value),n=document.getElementById('mLbName').value,u=document.getElementById('mLbUid').value,w=Number(document.getElementById('mLbWin').value);if(!r||!n)return;await db.collection("leaderboard").add({rank:r,name:n,uid:u,win:w});window.loadLeaderboard();};
+        
+        window.saveReferralSettings = async () => { const amt = Number(document.getElementById('refBonusAmt').value); if(amt > 0) { await db.collection("settings").doc("referral").set({ bonusAmount: amt }); alert("Bonus Saved!"); } };
+        window.fetchReferrals = async () => { 
+            const docSnap = await db.collection("settings").doc("referral").get(); if(docSnap.exists) document.getElementById('refBonusAmt').value = docSnap.data().bonusAmount || ''; 
+            const tbody = document.getElementById('referralBody'); const snap = await db.collection("referrals").orderBy("createdAt", "desc").limit(100).get(); let h = ''; snap.forEach(d => { const data = d.data(); h += `<tr class="ref-row" data-search="${data.referrerName?.toLowerCase()} ${data.refereeName?.toLowerCase()}"><td><div style="font-weight:bold; font-size:11px; color:var(--info);">${data.referrerName}</div></td><td><div style="font-weight:bold; font-size:11px;">${data.refereeName}</div></td><td><span style="font-family:monospace; color:var(--warning); font-size:10px;">${data.code}</span></td><td><span class="badge ${data.status==='Approved'?'b-succ':'b-warn'}">${data.status}</span></td></tr>`; }); tbody.innerHTML = h || `<tr><td colspan='4' style='text-align:center;'>No referrals.</td></tr>`; 
+        };
+        window.filterReferrals=()=>{let f=document.getElementById('refSearchInput').value.toLowerCase();document.querySelectorAll('.ref-row').forEach(r=>{r.style.display=r.getAttribute('data-search').includes(f)?'':'none';});};
+
+        window.fetchGeneralSettings = async () => {
+            const docSnap = await db.collection("settings").doc("general").get();
+            if(docSnap.exists) {
+                const d = docSnap.data();
+                document.getElementById('setSignupBonus').value = d.signupBonus || ''; document.getElementById('setFloatWa').value = d.whatsappFloat || '';
+                document.getElementById('setUpi').value = d.upiId || ''; document.getElementById('setQrUrl').value = d.qrUrl || '';
+                document.getElementById('sAppVer').value = d.latestVersion || 1; document.getElementById('sUpdateLink').value = d.updateLink || '';
+                document.getElementById('setPrivacy').value = d.privacyPolicy || ''; document.getElementById('setFairPlay').value = d.fairPlayPolicy || '';
+                document.getElementById('setZapKey').value = d.zapApiKey || '';
+            }
+        };
+        
+        window.saveSettingsGen = async () => { 
+            const btn = document.getElementById('saveCoreBtn'); btn.innerHTML = "Saving..."; btn.disabled = true;
+            try { 
+                let qrUrl = document.getElementById('setQrUrl').value;
+                const qrFile = document.getElementById('setQrFile').files[0];
+                if(qrFile) { qrUrl = await window.uploadImage(qrFile, 'settings'); document.getElementById('setQrUrl').value = qrUrl; }
+                
+                await db.collection("settings").doc("general").set({ signupBonus: Number(document.getElementById('setSignupBonus').value), whatsappFloat: document.getElementById('setFloatWa').value, privacyPolicy: document.getElementById('setPrivacy').value, fairPlayPolicy: document.getElementById('setFairPlay').value, upiId: document.getElementById('setUpi').value, qrUrl: qrUrl }, {merge:true}); 
+                alert("Core Settings Saved!"); 
+                document.getElementById('setLogoFile').value = ''; document.getElementById('setQrFile').value = '';
+            } catch(e) { console.error(e); alert("Error saving settings."); }
+            btn.innerHTML = "<i class='fa-solid fa-floppy-disk'></i> Save Settings"; btn.disabled = false;
+        };
+
+        window.saveSettingsStatus = async () => { try { await db.collection("settings").doc("general").set({ latestVersion: Number(document.getElementById('sAppVer').value), updateLink: document.getElementById('sUpdateLink').value }, {merge:true}); alert("Update Config Saved!"); } catch(e){} };
+
+        window.fetchActiveTheme = async () => { const docSnap = await db.collection("settings").doc("theme").get(); if(docSnap.exists && docSnap.data().activeTheme) { window.activeTheme = docSnap.data().activeTheme; window.updateThemeUI(window.activeTheme); } };
+        window.applyTheme = async (themeName) => { if(!confirm(`Change User App theme to ${themeName.toUpperCase()}?`)) return; try { await db.collection("settings").doc("theme").set({ activeTheme: themeName }); window.activeTheme = themeName; window.updateThemeUI(themeName); alert(`Theme updated to ${themeName}!`); } catch(e) { alert("Failed."); } };
+        window.updateThemeUI = (active) => { document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active')); document.getElementById('status-orange').innerText = "Click to Apply"; document.getElementById('status-blue').innerText = "Click to Apply"; document.getElementById('status-green').innerText = "Click to Apply"; document.getElementById(`theme-${active}`).classList.add('active'); document.getElementById(`status-${active}`).innerHTML = "<i class='fa-solid fa-check'></i> Active Theme"; }
+
+        window.fetchSocialLinks = async () => { const docSnap = await db.collection("settings").doc("socials").get(); if(docSnap.exists) { const d = docSnap.data(); document.getElementById('socWhatsapp').value = d.whatsapp || ''; document.getElementById('socInstagram').value = d.instagram || ''; document.getElementById('socDiscord').value = d.discord || ''; document.getElementById('socTelegram').value = d.telegram || ''; document.getElementById('socYoutube').value = d.youtube || ''; } };
+        window.saveSocialLinks = async () => { try { const data = { whatsapp: document.getElementById('socWhatsapp').value, instagram: document.getElementById('socInstagram').value, discord: document.getElementById('socDiscord').value, telegram: document.getElementById('socTelegram').value, youtube: document.getElementById('socYoutube').value, updatedAt: new Date() }; await db.collection("settings").doc("socials").set(data); alert("Social Links Saved!"); } catch(e) { alert("Failed"); } };
+
+    </script>
+
+<!-- FireX v3 admin upgrade: server-side push, staff roles, no secrets in Firestore -->
+<script src="config.js"></script>
+<script src="firex-admin.js"></script>
+</body>
+</html>
