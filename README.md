@@ -2,7 +2,7 @@
 
 **Ek hi URL** par app + `/api` dono. Koi alag "API URL" nahi.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/OWNER/firex-host)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ravi2809867-eng/firex-host)
 
 ## Deploy (2 minute)
 1. Upar **Deploy to Render** dabayein → GitHub/Google se login (free account).

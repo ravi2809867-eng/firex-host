@@ -9,3 +9,9 @@ service-account.json
 RENDER-SECRET*
 *.log
 .DS_Store
+
+# secrets — kabhi commit mat karo
+service-account.json
+*service-account*.json
+PASTE-IN-RENDER.txt
+*.jks
