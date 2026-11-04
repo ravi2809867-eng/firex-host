@@ -719,7 +719,7 @@
                 const genSnap = await db.collection("settings").doc("general").get();
                 if(genSnap.exists) {
                     window.appSettings = {...window.appSettings, ...genSnap.data()}; const d = window.appSettings;
-                    if(d.latestVersion && d.latestVersion > APP_VERSION) { document.getElementById('forceUpdateModal').style.display = 'flex'; }
+                    if(d.latestVersion && d.latestVersion > APP_VERSION && typeof d.updateLink === 'string' && d.updateLink.indexOf('http') === 0) { document.getElementById('forceUpdateModal').style.display = 'flex'; } /* gate only when a real APK download link is configured */
                     if(d.appName) { setTxt('splashAppName', d.appName); setTxt('authLogoText', d.appName); setTxt('authLogoText2', d.appName); setTxt('headerLogoText', d.appName); document.title = d.appName; }
                     if(d.logoUrl) { 
                         const hl = document.getElementById('headerLogoImg'); if(hl) { hl.src = d.logoUrl; hl.style.display = 'block'; }
