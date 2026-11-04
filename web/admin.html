@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SUPER ADMIN - SETUP & DASHBOARD</title>
+    <title>FIREX Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -609,14 +609,14 @@
         };
 
         async function checkAdminExists() {
-            try {
-                const s = await db.collection("settings").doc("general").get();
-                if(s.exists && s.data().adminCreated === true) {
-                    isLoginMode = true; document.getElementById('adminLoginBtn').innerText = "LOGIN SECURELY"; document.getElementById('authSubtitle').innerText = "Enter Admin Credentials";
-                } else {
-                    isLoginMode = false; document.getElementById('adminLoginBtn').innerText = "REGISTER AS ADMIN"; document.getElementById('authSubtitle').innerText = "Create Master Admin Account";
-                }
-            } catch(e) { isLoginMode = true; }
+            // "First visitor becomes master admin" setup flow REMOVED (security).
+            // Owners are provisioned server-side with custom claims via /api/bootstrap.
+            // The admin account already exists -> always show LOGIN, never REGISTER.
+            isLoginMode = true;
+            const b = document.getElementById('adminLoginBtn');
+            const t = document.getElementById('authSubtitle');
+            if (b) b.innerText = "LOGIN SECURELY";
+            if (t) t.innerText = "Enter Admin Credentials";
         }
         checkAdminExists();
 
@@ -625,9 +625,8 @@
             if(!email || !pass) { errEl.innerText = "Please enter Email and Password!"; errEl.style.display = 'block'; return; } 
             document.getElementById('adminLoginBtn').innerText = "Processing..."; errEl.style.display = 'none'; 
             try { 
-                if(isLoginMode) { await auth.signInWithEmailAndPassword(email, pass); } 
-                else { await auth.createUserWithEmailAndPassword(email, pass); await db.collection("settings").doc("general").set({ adminCreated: true }, {merge: true}); alert("Master Admin Created!"); } 
-            } catch(e) { errEl.innerText = e.message; errEl.style.display = 'block'; document.getElementById('adminLoginBtn').innerText = isLoginMode ? "LOGIN SECURELY" : "REGISTER AS ADMIN"; } 
+                await auth.signInWithEmailAndPassword(email, pass); /* registration disabled: owners are provisioned server-side only */ 
+            } catch(e) { errEl.innerText = e.message; errEl.style.display = 'block'; document.getElementById('adminLoginBtn').innerText = "LOGIN SECURELY"; } 
         };
 
         auth.onAuthStateChanged(async (user) => {
@@ -663,7 +662,7 @@
                 if(globalChatUnsub) { globalChatUnsub(); globalChatUnsub=null; }
                 if(vipChatUnsub) { vipChatUnsub(); vipChatUnsub=null; }
                 checkAdminExists();
-                document.getElementById('adminLoginBtn').innerText = isLoginMode ? "LOGIN SECURELY" : "REGISTER AS ADMIN";
+                document.getElementById('adminLoginBtn').innerText = "LOGIN SECURELY";
             }
         });
 

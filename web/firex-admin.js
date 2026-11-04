@@ -144,15 +144,10 @@
     side.insertAdjacentHTML('beforeend', `
       <div class="nav-item" onclick="window.open('/staff','_blank')" style="color:var(--info)"><i class="fa-solid fa-user-gear"></i> Staff Panel ↗</div>
       <div class="nav-item" onclick="FireXAdmin.refresh()" style="color:var(--admin-accent)"><i class="fa-solid fa-rotate-right"></i> Refresh data</div>`);
-    const main = document.getElementById('contentArea'); if (!main) return;
-    main.insertAdjacentHTML('beforeend', `<div class="admin-section" style="border:1px dashed var(--warning);padding:14px;border-radius:12px;margin-top:20px">
-      <h3 style="color:var(--warning);font-size:14px;margin-bottom:8px"><i class="fa-solid fa-shield-halved"></i> One-time secure owner setup</h3>
-      <p style="font-size:11px;color:var(--text-sub)">The old app let the FIRST visitor register as master admin. On a fresh project that is a takeover risk. Create your Firebase user, paste its UID below, set BOOTSTRAP_TOKEN in server/.env, then run this once.</p>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <input id="v3OwnerUid" class="form-input" placeholder="Firebase Auth UID" style="flex:1;min-width:200px">
-        <input id="v3BootToken" class="form-input" type="password" placeholder="BOOTSTRAP_TOKEN" style="flex:1;min-width:200px">
-        <button class="btn-admin" onclick="FireXAdmin.bootstrap()">Set owner</button>
-      </div></div>`);
+    // Owner is already provisioned server-side (custom claims on
+    // firexadmin@gmail.com). Do NOT show the one-time "Set owner" box any more —
+    // it is confusing and a takeover surface. Keep only the nav shortcuts above.
+    return;
   }
   window.FireXAdmin = {
     refresh() {
