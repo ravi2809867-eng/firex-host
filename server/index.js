@@ -699,6 +699,7 @@ app.use(express.static(WEB_DIR, { index: 'user.html', extensions: ['html'] }));
 app.get('/staff', (req, res) => res.sendFile(path.join(WEB_DIR, 'staff.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(WEB_DIR, 'admin.html')));
 app.get('/splash', (req, res) => res.sendFile(path.join(WEB_DIR, 'splash.html')));
+app.get('/downloads', (req, res) => res.sendFile(path.join(WEB_DIR, 'downloads.html')));
 
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, '0.0.0.0', () => console.log(`[firex] http://0.0.0.0:${PORT}  provider=${PROVIDER}  firebase=${firebaseReady}`));
