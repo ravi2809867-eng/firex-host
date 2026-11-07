@@ -565,6 +565,47 @@
     }
   };
 
+  /* ------------------------------------- fixes: password change + leaderboard
+     Original in-page functions wrote wallets/transactions and listed `users`
+     directly — dono hardened rules se deny hote the. Ab server endpoints. */
+  window.saveNewPassword = async function () {
+    const inp = document.getElementById('newPassInput');
+    const p = (inp?.value || '').trim();
+    if (p.length < 6) return toast('Password must be 6+ chars', true);
+    try {
+      const r = await api('/auth/change-password', { password: p });
+      toast(r.note || 'Password Updated (₹10 deducted) ✓');
+      try { closeModal('passwordModal'); } catch (e) { }
+      if (inp) inp.value = '';
+      refreshViews();
+    } catch (e) { toast(e.message, true); }
+  };
+
+  window.loadLeaderboard = async function () {
+    const box = document.getElementById('lbContainer');
+    if (box) box.innerHTML = "<div class='loader'>Loading leaderboard...</div>";
+    try {
+      const r = await api('/leaderboard', {}, 'GET');
+      const rows = Array.isArray(r.rows) ? r.rows : [];
+      let h = '';
+      for (const x of rows) {
+        const av = String(x.avatar || '👦');
+        const avHtml = /^https?:\/\//.test(av)
+          ? `<img src="${esc(av)}" style="width:35px;height:35px;object-fit:cover;border-radius:50%">`
+          : `<div style="width:35px;height:35px;display:flex;justify-content:center;align-items:center;font-size:24px">${esc(av)}</div>`;
+        h += `<div class="bal-row" style="align-items:center;padding:15px 20px;">`
+          + `<div style="display:flex;gap:15px;align-items:center;">`
+          + `<div style="font-size:16px;font-weight:900;color:var(--text-sub);width:20px;text-align:center">${Number(x.rank)}</div>`
+          + avHtml
+          + `<div style="font-weight:bold;font-size:14px;color:var(--text-main)">${esc(x.ffName)}</div></div>`
+          + `<div style="font-weight:900;color:var(--warning);font-size:16px">₹${Number(x.winning) || 0}</div></div>`;
+      }
+      if (box) box.innerHTML = h || "<div style='text-align:center;padding:20px;color:var(--text-sub)'>No data</div>";
+    } catch (e) {
+      if (box) box.innerHTML = "<div class='loader'>Error loading leaderboard</div>";
+    }
+  };
+
   /* -------------------------------------------------------------- INIT */
   function init() {
     injectUI();

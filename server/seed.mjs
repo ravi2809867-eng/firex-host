@@ -48,11 +48,17 @@ async function main() {
   for (const g of games) {
     batch.set(db.collection('admin_games').doc(g.slug), { ...g, createdAt: ts }, { merge: true });
   }
+  // Admin panel jaisa hi shape: status 'Upcoming' (capital U), `max` slots,
+  // `category` = admin_games ka name — warna client category screen / slot grid
+  // me match dikhta hi nahi. Server dono (max / capacity) accept karta hai.
   batch.set(db.collection('tournaments').doc('welcome-free-match'), {
-    name: 'Welcome Free Match', fee: 0, entryFee: 0, capacity: 100,
-    status: 'upcoming', startsAt: new Date(Date.now() + 24 * 3600 * 1000),
+    name: 'Welcome Free Match', category: 'Free Turnament',
+    fee: 0, entryFee: 0, max: 48, capacity: 48,
+    status: 'Upcoming',
+    time: new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 16),
+    startsAt: new Date(Date.now() + 24 * 3600 * 1000),
     prizeDescription: '₹0 · Practice', map: 'Bermuda', type: 'Solo',
-    perKill: 0, pool: 0, joinedUsers: [], createdAt: ts,
+    perKill: 0, pool: 0, rules: '', isVipOnly: false, joinedUsers: [], createdAt: ts,
   }, { merge: true });
   await batch.commit();
   console.log('seeded settings (' + Object.keys(settings).length + '), games (' + games.length + '), 1 banner, 1 tournament');

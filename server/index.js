@@ -450,33 +450,116 @@ app.post('/api/wallet/redeem', needFirebase, auth, async (req, res) => {
   } catch (e) { reply(res, e.status || 500, { error: e.message }); }
 });
 
+/* ---- tournament join: FREE (fee 0) + PAID, dono yahin se -----------------
+   Admin panel `status: "Upcoming"` (capital U) aur `max` likhta hai; purana
+   seed `status: "upcoming"` + `capacity` likhta tha. Dono accept karte hain.
+   Free matches: koi wallet cut nahi, koi ₹0 transaction nahi.              */
 app.post('/api/wallet/join', needFirebase, auth, async (req, res) => {
   try {
-    const { tournamentId, players = [] } = req.body;
+    const { tournamentId, players: rawPlayers = [] } = req.body;
     if (!tournamentId) return reply(res, 400, { error: 'tournamentId required' });
-    const firestore = db(), tRef = firestore.collection('tournaments').doc(String(tournamentId)), uRef = firestore.collection('users').doc(req.user.uid);
+    const list = Array.isArray(rawPlayers) ? rawPlayers.slice(0, 8) : [];
+    if (!list.length) return reply(res, 400, { error: 'Select at least one slot' });
+    const firestore = db();
+    const tRef = firestore.collection('tournaments').doc(String(tournamentId));
+    const uRef = firestore.collection('users').doc(req.user.uid);
     const out = await firestore.runTransaction(async (tx) => {
       const [t, u] = await Promise.all([tx.get(tRef), tx.get(uRef)]);
       if (!t.exists) throw Object.assign(new Error('Tournament not found'), { status: 404 });
-      const d = t.data(), w = u.data()?.wallets || { winning: 0, deposit: 0, bonus: 0 };
-      const fee = Number(d.fee || d.entryFee || 0) * Math.max(1, players.length);
-      if (fee <= 0) throw Object.assign(new Error('Use free join'), { status: 400 });
-      if (String(d.status) !== 'upcoming') throw Object.assign(new Error('Registration closed'), { status: 409 });
-      const joined = d.joinedUsers || [];
-      if (joined.length >= Number(d.capacity || 999)) throw Object.assign(new Error('Tournament full'), { status: 409 });
+      const d = t.data(), ud = u.data() || {};
+      const st = String(d.status || 'upcoming').toLowerCase();
+      if (['results', 'completed', 'closed', 'cancelled', 'finished', 'live', 'ongoing'].includes(st))
+        throw Object.assign(new Error('Registration closed'), { status: 409 });
+      const cap = Math.max(1, Number(d.max || d.capacity || d.slots || 999) || 999);
+      const feePer = Math.max(0, Number(d.fee ?? d.entryFee ?? 0) || 0);
+      const joined = Array.isArray(d.joinedUsers) ? d.joinedUsers : [];
+      if (joined.length + list.length > cap) throw Object.assign(new Error('Tournament full'), { status: 409 });
       if (joined.some((p) => p.userDocId === req.user.uid)) throw Object.assign(new Error('Already joined'), { status: 409 });
-      let rem = fee, dep = w.deposit || 0, win = w.winning || 0, bon = w.bonus || 0;
-      const useBon = Math.min(bon, fee); bon -= useBon; rem -= useBon;
-      const useDep = Math.min(dep, rem); dep -= useDep; rem -= useDep;
-      const useWin = Math.min(win, rem); win -= useWin; rem -= useWin;
-      if (rem > 0) throw Object.assign(new Error('Insufficient balance'), { status: 400 });
-      tx.update(uRef, { 'wallets.deposit': dep, 'wallets.winning': win, 'wallets.bonus': bon });
-      tx.update(tRef, { joinedUsers: [...joined, ...players.map((p) => ({ ...p, userDocId: req.user.uid, joinedAt: new Date().toISOString() }))] });
-      tx.set(firestore.collection('transactions').doc(), { userId: req.user.uid, type: 'Match Entry', desc: d.name || 'Tournament', amount: fee, status: 'Success', date: now() });
-      return { fee, balance: { deposit: dep, winning: win, bonus: bon } };
+
+      const taken = new Set(joined.map((p) => Number(p.slot)).filter(Boolean));
+      const players = list.map((p) => {
+        const ffName = String(p?.ffName || '').trim().slice(0, 30);
+        const ffUid = String(p?.ffUid || '').trim().slice(0, 20);
+        const slot = Number(p?.slot);
+        if (!ffName || !ffUid) throw Object.assign(new Error('Fill Name and UID for every slot'), { status: 400 });
+        if (!Number.isInteger(slot) || slot < 1 || slot > cap) throw Object.assign(new Error('Invalid slot'), { status: 400 });
+        if (taken.has(slot)) throw Object.assign(new Error('Slot ' + slot + ' already taken'), { status: 409 });
+        taken.add(slot);
+        // badges server-side derive karo — client se spoof na ho sake
+        return {
+          ffName, ffUid, slot,
+          avatar: String(p?.avatar || '👦').slice(0, 200),
+          vip: !!(ud.vipExpiry && new Date(ud.vipExpiry) > new Date()),
+          crown: (ud.purchasedItems || []).includes('gold_crown'),
+          tick: (ud.purchasedItems || []).includes('blue_tick'),
+          level: Number(ud.level) || Math.floor(((ud.claimedLevels || []).length * 10) / 10) + 1,
+          rank: String(ud.rank || 'Unranked').slice(0, 30),
+          userDocId: req.user.uid, joinedAt: new Date().toISOString(),
+        };
+      });
+
+      const fee = feePer * players.length;   // 0 => FREE MATCH ✅
+      const w = ud.wallets || { winning: 0, deposit: 0, bonus: 0 };
+      let dep = w.deposit || 0, win = w.winning || 0, bon = w.bonus || 0, rem = fee;
+      if (fee > 0) {
+        const ub = Math.min(bon, rem); bon -= ub; rem -= ub;
+        const ud2 = Math.min(dep, rem); dep -= ud2; rem -= ud2;
+        const uw = Math.min(win, rem); win -= uw; rem -= uw;
+        if (rem > 0) throw Object.assign(new Error('Insufficient balance'), { status: 400 });
+        tx.update(uRef, { 'wallets.deposit': dep, 'wallets.winning': win, 'wallets.bonus': bon });
+      }
+      tx.update(tRef, { joinedUsers: [...joined, ...players] });
+      if (fee > 0) tx.set(firestore.collection('transactions').doc(), {
+        userId: req.user.uid, type: 'Match Entry', desc: d.name || 'Tournament',
+        amount: fee, status: 'Success', date: now(),
+      });
+      return { fee, free: fee === 0, slots: players.map((p) => p.slot), balance: { deposit: dep, winning: win, bonus: bon } };
     });
     reply(res, 200, { ok: true, ...out });
   } catch (e) { reply(res, e.status || 500, { error: e.message }); }
+});
+
+/* Password change (₹10 fee) — server-side, kyunki client ko wallet/transactions
+   likhne ki ijazat nahi hai (hardened rules). Auth password bhi Admin SDK se. */
+app.post('/api/auth/change-password', needFirebase, auth, async (req, res) => {
+  try {
+    const p = String(req.body.password || '');
+    if (p.length < 6 || p.length > 128) return reply(res, 400, { error: 'Password must be 6–128 characters' });
+    const firestore = db(), uRef = firestore.collection('users').doc(req.user.uid);
+    const snap = await uRef.get();
+    const w = snap.data()?.wallets || { deposit: 0, winning: 0, bonus: 0 };
+    if ((Number(w.deposit) || 0) + (Number(w.winning) || 0) < 10)
+      return reply(res, 400, { error: 'Insufficient balance for ₹10 fee' });
+    await admin.auth().updateUser(req.user.uid, { password: p });
+    await firestore.runTransaction(async (tx) => {
+      const u = await tx.get(uRef);
+      const ww = u.data()?.wallets || { deposit: 0, winning: 0, bonus: 0 };
+      let dep = ww.deposit || 0, win = ww.winning || 0, rem = 10;
+      const a = Math.min(dep, rem); dep -= a; rem -= a;
+      const b = Math.min(win, rem); win -= b; rem -= b;
+      if (rem > 0) throw Object.assign(new Error('Insufficient balance'), { status: 400 });
+      tx.update(uRef, { 'wallets.deposit': dep, 'wallets.winning': win });
+      tx.set(firestore.collection('transactions').doc(), {
+        userId: req.user.uid, type: 'Password Change Fee', desc: 'Security update',
+        amount: 10, status: 'Success', date: now(),
+      });
+    });
+    reply(res, 200, { ok: true, note: 'Password updated — ₹10 deducted' });
+  } catch (e) { reply(res, e.status || 500, { error: e.message }); }
+});
+
+/* Leaderboard — `users` collection client se list nahi ho sakti (privacy),
+   isliye sirf public fields server se bhejte hain. */
+app.get('/api/leaderboard', needFirebase, auth, async (req, res) => {
+  try {
+    const s = await db().collection('users').orderBy('wallets.winning', 'desc').limit(10).get();
+    reply(res, 200, {
+      ok: true, rows: s.docs.map((d, i) => {
+        const x = d.data();
+        return { rank: i + 1, ffName: x.ffName || 'Player', avatar: x.avatar || '👦', winning: Number(x.wallets?.winning || 0) };
+      }),
+    });
+  } catch (e) { reply(res, 500, { error: e.message }); }
 });
 
 /* ---- store / level / airdrop (server-side so rules can stay strict) ---- */
