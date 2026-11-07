@@ -380,8 +380,19 @@
     try {
       const r = await api('/wallet/join', { tournamentId: m.id, players });
       toast('Joined successfully ✓');
-      try { closeModal('matchModal'); closeCategoryScreen(); } catch (e) { }
+      // Asli bug: app tournaments ko ek hi baar get() se load karta tha, to
+      // join ke baad bhi purana cache "No players joined yet" dikha raha tha.
+      // Pehle fresh data lao, phir modal me Players tab khol ke user dikhao.
+      try { if (typeof window.firexRefreshMatches === 'function') await window.firexRefreshMatches(); } catch (e) { }
       refreshViews();
+      try {
+        if (typeof closeCategoryScreen === 'function') closeCategoryScreen();
+        const fresh = (window.allTournaments || []).find(x => x.id === m.id);
+        if (fresh && typeof openMatchDetails === 'function') {
+          openMatchDetails(fresh.id);
+          if (typeof switchMatchModalTab === 'function') switchMatchModalTab('Players');
+        }
+      } catch (e) { }
     } catch (e) { const el = $('#joinErrorMsg'); if (el) el.textContent = 'Error: ' + e.message; toast(e.message, true); }
     finally { if (b) { b.disabled = false; b.innerText = 'Join Match'; } }
   };
@@ -836,6 +847,98 @@
     // dobara define kare, hamara payment shortcut hi zinda rahega.
     const guard = setInterval(rebind, 1000);
     setTimeout(() => clearInterval(guard), 20000);
+  })();
+
+  /* ==========================================================================
+   * 10. LIVE MATCH DATA — join ke baad user turant dikhe
+   * --------------------------------------------------------------------------
+   * user.html tournaments ko sirf EK baar `get()` se load karta hai
+   * (loadHomeData). Server /api/wallet/join sahi me joinedUsers likh deta hai,
+   * par client ka array purana rehta tha → "My Matches" aur Players tab me
+   * user nahi dikhta tha. Ab collection par onSnapshot + join ke baad refetch
+   * + app resume par refetch, aur status case-insensitive.
+   * ========================================================================*/
+  (() => {
+    let unsub = null;
+    const norm = (s) => String(s == null ? '' : s).trim().toLowerCase();
+    const canon = (s) => {
+      const x = norm(s);
+      if (['upcoming', 'registration open', 'open', ''].includes(x)) return 'Upcoming';
+      if (['ongoing', 'live', 'running', 'started', 'in progress'].includes(x)) return 'Ongoing';
+      if (['results', 'result', 'completed', 'finished', 'closed'].includes(x)) return 'Results';
+      if (['cancelled', 'canceled'].includes(x)) return 'Cancelled';
+      return String(s == null ? '' : s);
+    };
+    const activeStatus = () => {
+      const b = document.querySelector('.match-tabs .tab-btn.active');
+      const t = b ? norm(b.textContent || '') : '';
+      if (t.startsWith('result')) return 'Results';
+      if (t.startsWith('ongoing')) return 'Ongoing';
+      return 'Upcoming';
+    };
+    function renderPlayers() {
+      const m = window.selectedMatch, box = document.getElementById('mTabPlayers');
+      if (!m || !box) return;
+      const list = Array.isArray(m.joinedUsers) ? m.joinedUsers : [];
+      if (!list.length) {
+        box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-sub);font-size:12px">No players joined yet.</div>';
+        return;
+      }
+      box.innerHTML = [...list].sort((a, b) => (Number(a.slot) || 0) - (Number(b.slot) || 0)).map((u, i) => {
+        const me = u.userDocId && window.currentUser && u.userDocId === window.currentUser.uid;
+        const badge = me ? '<span style="font-size:9px;background:#e6f7ec;color:#127a3d;padding:2px 6px;border-radius:8px;margin-left:6px">YOU</span>' : '';
+        const av = String(u.avatar || '👦');
+        const avHtml = av.startsWith('http')
+          ? `<img src="${esc(av)}" style="width:30px;height:30px;border-radius:50%;object-fit:cover">`
+          : `<span style="font-size:18px">${esc(av)}</span>`;
+        return `<div style="padding:10px 15px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:10px">
+          <div style="background:rgba(0,0,0,.05);width:25px;height:25px;border-radius:50%;display:flex;justify-content:center;align-items:center;font-size:10px;font-weight:bold">${esc(u.slot || i + 1)}</div>
+          <div style="width:30px;height:30px;display:flex;justify-content:center;align-items:center">${avHtml}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-main)">${esc(u.ffName)}${badge}
+            ${u.level ? `<span style="font-size:9px;background:rgba(0,0,0,.1);padding:2px 4px;border-radius:4px;margin-left:6px">Lv.${esc(u.level)} | ${esc(u.rank || '')}</span>` : ''}
+          </div></div>`;
+      }).join('');
+    }
+    function apply(list) {
+      // App 'Upcoming' / 'Ongoing' / 'Results' exact compare karta hai.
+      window.allTournaments = (list || []).map(m => ({ ...m, status: canon(m.status) }));
+      const sm = window.selectedMatch;
+      if (sm && sm.id) {
+        const fresh = window.allTournaments.find(x => x.id === sm.id);
+        if (fresh) window.selectedMatch = fresh;      // purana reference hatana zaroori
+      }
+      try { if (window.currentUser && typeof filterMyMatches === 'function') filterMyMatches(activeStatus(), document.querySelector('.match-tabs .tab-btn.active')); } catch (e) { }
+      try { if (typeof calculateProfileStats === 'function') calculateProfileStats(); } catch (e) { }
+      renderPlayers();
+    }
+    window.firexRefreshMatches = async function () {
+      try {
+        const snap = await firebase.firestore().collection('tournaments').get();
+        const list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        apply(list);
+        return list.length;
+      } catch (e) { console.warn('[firex] tournaments refetch:', e.message); return 0; }
+    };
+    function startListener() {
+      if (unsub || !window.currentUser) return;
+      try {
+        unsub = firebase.firestore().collection('tournaments').onSnapshot((snap) => {
+          const list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+          apply(list);
+        }, (e) => { console.warn('[firex] tournaments listener:', e.message); unsub = null; });
+      } catch (e) { console.warn('[firex] listener start:', e.message); }
+    }
+    try {
+      firebase.auth().onAuthStateChanged((u) => {
+        if (u) { startListener(); setTimeout(() => window.firexRefreshMatches(), 1500); }
+        else if (unsub) { try { unsub(); } catch (e) { } unsub = null; }
+      });
+    } catch (e) { }
+    document.addEventListener('DOMContentLoaded', () => { setTimeout(startListener, 900); setTimeout(() => window.firexRefreshMatches(), 1800); });
+    // UPI / kisi bhi doosre app se wapas aane par bhi fresh data
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && window.currentUser) window.firexRefreshMatches();
+    });
   })();
 
   /* -------------------------------------------------------------- INIT */
