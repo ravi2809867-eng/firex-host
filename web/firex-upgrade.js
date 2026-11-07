@@ -832,6 +832,10 @@
     try { firebase.auth().onAuthStateChanged(() => { rebind(); setTimeout(rebind, 400); setTimeout(rebind, 1600); }); } catch (e) { }
     document.addEventListener('DOMContentLoaded', rebind);
     setTimeout(rebind, 500); setTimeout(rebind, 2000);
+    // 20s guard: chahe app kabhi bhi (slow auth / lazy script) purane functions
+    // dobara define kare, hamara payment shortcut hi zinda rahega.
+    const guard = setInterval(rebind, 1000);
+    setTimeout(() => clearInterval(guard), 20000);
   })();
 
   /* -------------------------------------------------------------- INIT */
