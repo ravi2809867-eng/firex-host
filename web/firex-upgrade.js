@@ -606,6 +606,234 @@
     }
   };
 
+  /* ==========================================================================
+   * 6b. PAYMENT v2 — "Add Cash" se seedha UPI apps, koi false failure nahi
+   * --------------------------------------------------------------------------
+   * Purana flow: Step 2 me static QR + "Enter UTR & Upload Screenshot,
+   * Coin will not Add wait 2min" tha. Users wahi QR se pay kar dete the,
+   * lekin koi /api/payments/create order hi nahi banta tha → coins nahi aate
+   * the, aur app "payment fail" dikha deta tha. Ab Step 2 bypass hota hai:
+   * Next Step → server se dynamic order → QR + FamPay/Zap/GPay/PhonePe/
+   * Paytm/BHIM buttons → UPI app → wapas aate hi auto credit.
+   * ========================================================================*/
+  (() => {
+    const S = { order: null, timer: null, poll: null, openedUpi: false, returned: false, busy: false, amount: 0 };
+    const FALLBACK_APPS = [
+      { key: 'fampay', label: 'FamPay', emoji: '🟣', pkg: 'com.fampay.in' },
+      { key: 'zap', label: 'Zap UPI', emoji: '⚡', pkg: '' },
+      { key: 'gpay', label: 'GPay', emoji: '🟢', pkg: 'com.google.android.apps.nbu.paisa.user' },
+      { key: 'phonepe', label: 'PhonePe', emoji: '💜', pkg: 'com.phonepe.app' },
+      { key: 'paytm', label: 'Paytm', emoji: '🔵', pkg: 'net.one97.paytm' },
+      { key: 'bhim', label: 'BHIM', emoji: '🟠', pkg: 'in.org.npci.upiapp' },
+    ];
+    const el = (id) => document.getElementById(id);
+    const stop = () => { clearInterval(S.timer); clearInterval(S.poll); };
+    const vpaOf = (o) => {
+      if (!o) return '';
+      if (o.upiId) return o.upiId;
+      try { return decodeURIComponent(new URLSearchParams(String(o.upiUri || '').split('?')[1] || '').get('pa') || ''); }
+      catch (e) { return ''; }
+    };
+
+    const pay = {
+      close() { stop(); const m = el('firexPayModal'); if (m) m.remove(); S.order = null; S.openedUpi = false; },
+      async open(amount) {
+        const amt = Number(amount);
+        if (!Number.isFinite(amt) || amt < 10) { toast('Minimum deposit ₹10', true); return; }
+        const old = el('firexPayModal'); if (old) old.remove();
+        stop(); S.amount = amt; S.order = null; S.openedUpi = false; S.returned = false; S.busy = false;
+        if (!$('#firexPayCSS') && typeof PAY_CSS !== 'undefined') {
+          const st = document.createElement('style'); st.id = 'firexPayCSS'; st.textContent = PAY_CSS; document.head.appendChild(st);
+        }
+        if (!el('firexPayCSS2')) {
+          const st2 = document.createElement('style'); st2.id = 'firexPayCSS2';
+          st2.textContent = `#firexPayModal .fp-apps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}`
+            + `#firexPayModal .fp-apps button{margin:0;padding:10px 3px;font-size:11px;background:#eee9ff;color:#4b2ea8;font-weight:800}`
+            + `#firexPayModal .fp-vpa{text-align:center;font:12px monospace;font-weight:800;color:#1b7a4b;background:#e9fbef;padding:9px;border-radius:10px;margin:8px 0}`
+            + `#firexPayModal button.ghost2{background:#eef0ff;color:#3b2b8f}`
+            + `#firexPayModal .fp-err{text-align:center;font-size:11px;color:#d33;min-height:14px;margin-top:6px}`;
+          document.head.appendChild(st2);
+        }
+        document.body.insertAdjacentHTML('beforeend', `<div id="firexPayModal"><div class="fp-sheet">
+          <div class="fp-head"><b style="font-size:15px">Pay Securely</b><span style="font-size:20px;cursor:pointer" onclick="FireX.pay.close()">✕</span></div>
+          <div style="background:#1a1230;border-radius:16px;padding:16px;color:#c9c2e8">
+            <div style="text-align:center;font-size:10px;letter-spacing:.18em;font-weight:800">AMOUNT TO PAY</div>
+            <div class="fp-amt" style="color:#a99bff">₹${amt.toFixed(2)}</div>
+            <div style="text-align:center"><span class="fp-oid" id="fpOid">creating order…</span></div>
+          </div>
+          <div class="fp-vpa" id="fpVpa">UPI ID load ho raha hai…</div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:.12em;color:#7c4dff;margin:12px 0 6px">▦ QR SE SCAN KARKE PAY KAREIN</div>
+          <img class="fp-qr" id="fpQr" alt="UPI QR">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.12em;color:#7c4dff;margin:12px 0 2px">📱 YA APP SE DIRECT PAY KAREIN</div>
+          <div class="fp-apps" id="fpApps"></div>
+          <button class="upi" id="fpUpiApp" onclick="FireX.pay.openUpi()">📲 KOI BHI UPI APP (Chooser)</button>
+          <button class="ghost" onclick="FireX.pay.copyVpa()">📋 COPY UPI ID</button>
+          <div class="fp-timer">⏳ SESSION · <span id="fpTime">30:00</span></div>
+          <input id="fpUtr" placeholder="12-digit UTR (optional)">
+          <button id="fpConfirm" onclick="FireX.pay.confirm()">I HAVE PAID · ADD COINS INSTANTLY</button>
+          <button class="ghost" onclick="FireX.pay.close()">Cancel</button>
+          <div class="fp-err" id="fpErr"></div>
+          <p class="fp-hint">UPI app me payment poora karke wapas aayein — coins apne aap add ho jayenge. Screenshot, UTR ya admin approval ki zarurat nahi.</p>
+        </div></div>`);
+        await create(amt);
+      },
+
+      /* pkg = specific app. Naye APK me FireXNative.payWithUpi(uri, pkg)
+         seedha us app ko kholta hai; purane APK me 1-arg bridge chooser
+         kholta hai — dono me sab UPI apps chalte hain. */
+      openUpi(key) {
+        const o = S.order;
+        if (!o || !o.upiUri) { toast('Order abhi ban raha hai, 2 second wait karein', true); return; }
+        const app = (Array.isArray(o.upiApps) ? o.upiApps : FALLBACK_APPS).find(a => a.key === key);
+        const uri = o.upiUri, pkg = app ? (app.pkg || '') : '';
+        S.openedUpi = true; S.returned = false;
+        try {
+          const N = window.FireXNative;
+          if (N && typeof N.payWithUpi === 'function') {
+            try { N.payWithUpi(uri, pkg); }
+            catch (e) { try { N.payWithUpi(uri); } catch (e2) { window.location.href = uri; } }
+          } else window.location.href = uri;
+          toast(app ? app.label + ' khul raha hai…' : 'UPI app chooser khul raha hai…');
+          setTimeout(() => {
+            if (S.order && document.visibilityState === 'visible' && el('fpErr'))
+              el('fpErr').textContent = 'App nahi khula? "COPY UPI ID" dabayein aur kisi bhi UPI app me manually pay karein.';
+          }, 2600);
+        } catch (e) {
+          toast('UPI app nahi mila: ' + e.message, true);
+          if (el('fpErr')) el('fpErr').textContent = 'Koi UPI app nahi mila — UPI ID copy karke manually pay karein.';
+        }
+      },
+
+      copyVpa() {
+        const v = vpaOf(S.order);
+        if (!v) return toast('UPI ID abhi load ho raha hai', true);
+        const done = () => toast('UPI ID copied: ' + v);
+        const fallback = () => {
+          const t = document.createElement('textarea'); t.value = v; document.body.appendChild(t); t.select();
+          try { document.execCommand('copy'); done(); } catch (e) { toast('UPI ID: ' + v, true); }
+          t.remove();
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, fallback);
+        else fallback();
+      },
+
+      async confirm(extra) {
+        if (!S.order) return toast('Order nahi mila — dobara Add Cash karein', true);
+        if (S.busy) return;
+        S.busy = true;
+        const b = el('fpConfirm');
+        if (b) { b.disabled = true; b.innerHTML = '<span class="fp-spin"></span> Verifying…'; }
+        try {
+          const r = await api('/payments/confirm', {
+            orderId: S.order.orderId,
+            utr: (el('fpUtr')?.value || '').trim(),
+            upiStatus: 'UNKNOWN',
+            ...(extra || {}),
+          });
+          if (r.ok === false && r.pending) {
+            toast(r.error || 'Gateway abhi verify kar raha hai…', true);
+            if (el('fpErr')) el('fpErr').textContent = r.error || '';
+            if (b) { b.disabled = false; b.textContent = 'I HAVE PAID · RETRY'; }
+            return;
+          }
+          toast('₹' + S.order.amount + ' coins added automatically ✓');
+          stop(); pay.close(); refreshViews();
+        } catch (e) {
+          if (el('fpErr')) el('fpErr').textContent = e.message;
+          toast(e.message, true);
+          if (b) { b.disabled = false; b.textContent = 'I HAVE PAID · RETRY'; }
+        } finally { S.busy = false; }
+      },
+    };
+
+    async function create(amt) {
+      const b = el('fpConfirm');
+      if (b) { b.disabled = true; b.textContent = 'Creating secure order…'; }
+      try {
+        const o = await api('/payments/create', { amount: amt, idempotencyKey: uuid() });
+        S.order = o; S.returned = false;
+        if (el('fpOid')) el('fpOid').textContent = '#' + String(o.orderId).slice(0, 16).toUpperCase();
+        if (o.qrDataUrl && el('fpQr')) el('fpQr').src = o.qrDataUrl;
+        if (el('fpVpa')) el('fpVpa').textContent = 'Pay to UPI ID: ' + (vpaOf(o) || '—');
+        const apps = Array.isArray(o.upiApps) && o.upiApps.length ? o.upiApps : FALLBACK_APPS;
+        if (el('fpApps')) el('fpApps').innerHTML = apps.map(a =>
+          `<button onclick="FireX.pay.openUpi('${esc(a.key)}')">${esc(a.emoji || '📲')} ${esc(a.label)}</button>`).join('');
+        if (b) { b.disabled = false; b.textContent = 'I HAVE PAID · ADD COINS INSTANTLY'; }
+        countdown(o.expiresAt || Date.now() + (o.orderTtlMs || 1800000));
+        poll(o.orderId);
+      } catch (e) {
+        // Modal band mat karo — user ko clear error + RETRY dikhao.
+        if (el('fpErr')) el('fpErr').textContent = 'Order nahi bana: ' + e.message;
+        if (el('fpOid')) el('fpOid').textContent = 'retry karein';
+        toast(e.message, true);
+        if (b) { b.disabled = false; b.textContent = '🔄 RETRY ORDER'; b.onclick = () => create(amt); }
+      }
+    }
+    function countdown(expiresAt) {
+      clearInterval(S.timer);
+      S.timer = setInterval(() => {
+        const left = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+        const t = el('fpTime'); if (t) t.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+        if (left <= 0) { clearInterval(S.timer); if (el('fpErr')) el('fpErr').textContent = 'Session expire ho gaya — RETRY dabayein.'; }
+      }, 500);
+    }
+    function poll(orderId) {
+      clearInterval(S.poll);
+      S.poll = setInterval(async () => {
+        try {
+          const s = await api('/payments/status/' + orderId, {}, 'GET');
+          if (s.status === 'paid') { stop(); toast('Payment confirmed automatically ✓'); pay.close(); refreshViews(); }
+        } catch (e) { }
+      }, 3000);
+    }
+
+    FireX.pay = pay;
+    /* Purana APK jab UPI app koi response na de to "Status=FAILURE" bhejta
+       tha, jabki payment ho chuki hoti thi — isse "payment fail" dikhta tha.
+       Ab aise ambiguous callback ko block nahi karte, verify karte hain. */
+    FireX.onUpiResult = function (raw) {
+      try {
+        const r = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+        const status = String(r.status || r.Status || r.upiStatus || '').toUpperCase();
+        const txnRef = String(r.txnRef || r.txnRefNo || r.txnref || '');
+        const approvalRef = String(r.approvalRef || r.ApprovalRefNo || r.approvalRefNo || '');
+        const bad = /FAIL|DECLIN|CANCEL|REJECT/.test(status);
+        if (bad && !txnRef && !approvalRef) {
+          if (el('fpErr')) el('fpErr').textContent = 'Payment verify ho raha hai…';
+          setTimeout(() => { if (S.order) pay.confirm({ upiStatus: 'UNKNOWN' }); }, 1200);
+          return;
+        }
+        if (bad) { toast('Payment cancel/fail — dobara try karein', true); return; }
+        pay.confirm({ upiStatus: status || 'UNKNOWN', txnRef, approvalRef });
+      } catch (e) { console.warn('[firex] upi result', e.message); }
+    };
+
+    /* UPI app se wapas aate hi auto-verify (sirf tab jab user ne UPI button
+       dabaya ho). Isse "payment ho gaya par coins nahi aaye" khatam hota hai. */
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !S.order || !S.openedUpi || S.returned) return;
+      S.returned = true;
+      setTimeout(() => { if (S.order && !S.busy) pay.confirm({ upiStatus: 'UNKNOWN', fromApp: true }); }, 1400);
+    });
+
+    /* ---- Purana 2-step deposit screen bypass ---- */
+    function shortcutToPayment() {
+      const amt = Number((el('depAmtInput') || {}).value || 0);
+      const min = Number(window.appSettings?.minDeposit || 10);
+      if (!Number.isFinite(amt) || amt < min) { toast('Minimum deposit ₹' + min, true); return; }
+      try { closeDepositModal(); } catch (e) { }
+      pay.open(amt);
+    }
+    window.goToDepositStep2 = shortcutToPayment;
+    window.submitFinalDeposit = shortcutToPayment;
+    window.copyAdminUpi = () => pay.copyVpa();
+    // Agar app kisi async callback me inhe dobara define kare to wapas lagao.
+    const rebind = () => { window.goToDepositStep2 = shortcutToPayment; window.submitFinalDeposit = shortcutToPayment; };
+    try { firebase.auth().onAuthStateChanged(() => { rebind(); setTimeout(rebind, 400); setTimeout(rebind, 1600); }); } catch (e) { }
+    document.addEventListener('DOMContentLoaded', rebind);
+    setTimeout(rebind, 500); setTimeout(rebind, 2000);
+  })();
+
   /* -------------------------------------------------------------- INIT */
   function init() {
     injectUI();

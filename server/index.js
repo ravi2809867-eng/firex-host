@@ -31,8 +31,16 @@ const PROVIDER = (process.env.PAYMENT_PROVIDER || 'upiqr').toLowerCase();
    12-digit UTR instead. With a real UPI PSP configured the server verifies
    with the PSP before crediting, so this flag is only for zero-config mode. */
 const AUTO_CREDIT = process.env.UPI_AUTO_CREDIT !== 'false' && process.env.AUTO_APPROVE_SIMULATION !== 'false';
-const ORDER_TTL_MS = 8 * 60 * 1000;   // matches the 07:54 checkout timer
-const ALLOWED_AMOUNTS = [10, 20, 30, 50, 100, 500, 1000]; // rupees
+// 30 min default (pehle 8 min tha — users ke payment expire ho jate the).
+// Env me ms (480000) ya minutes (30) dono chalega.
+const ORDER_TTL_MS = (() => {
+  const v = Number(process.env.ORDER_TTL_MS);
+  if (!Number.isFinite(v) || v <= 0) return 30 * 60 * 1000;
+  return v > 1000 ? v : v * 60 * 1000;
+})();
+const ALLOWED_AMOUNTS = [10, 20, 30, 50, 100, 500, 1000]; // quick-pick presets
+const MIN_DEPOSIT = 10, MAX_DEPOSIT = 10000;               // any amount in between is valid
+const validAmount = (v) => Number.isFinite(v) && v >= MIN_DEPOSIT && v <= MAX_DEPOSIT && Math.abs(v * 100 - Math.round(v * 100)) < 0.001;
 
 let firebaseReady = false;
 try {
@@ -128,6 +136,17 @@ async function sendPushToUser(userId, title, body, data = {}) {
 /* ------------------------------------------------------- payment providers */
 const UPI_ID = process.env.MERCHANT_UPI_ID || 'firex@upi';
 const MERCHANT_NAME = process.env.MERCHANT_NAME || 'FireX Esports';
+/* App me direct buttons. Agar koi package installed na ho to APK chooser
+   khol deta hai — isliye koi bhi UPI app (FamPay / Zap UPI / GPay / PhonePe /
+   Paytm / BHIM / bank app) hamesha chal sakta hai. */
+const UPI_APPS = [
+  { key: 'fampay',  label: 'FamPay',   emoji: '🟣', pkg: 'com.fampay.in' },
+  { key: 'zap',     label: 'Zap UPI',  emoji: '⚡', pkg: '' },
+  { key: 'gpay',    label: 'GPay',     emoji: '🟢', pkg: 'com.google.android.apps.nbu.paisa.user' },
+  { key: 'phonepe', label: 'PhonePe',  emoji: '💜', pkg: 'com.phonepe.app' },
+  { key: 'paytm',   label: 'Paytm',    emoji: '🔵', pkg: 'net.one97.paytm' },
+  { key: 'bhim',    label: 'BHIM',     emoji: '🟠', pkg: 'in.org.npci.upiapp' },
+];
 
 function simulationOrder(userId, amount, orderId) {
   const upiUri = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${amount}&cu=INR&tn=${encodeURIComponent('FIREX-' + orderId.slice(0, 8))}&tr=${encodeURIComponent(orderId.slice(0, 12))}`;
@@ -191,7 +210,12 @@ async function pspPaymentSuccess(orderId) {
 
 /* ------------------------------------------------------------------- routes */
 app.get('/api/health', (req, res) => reply(res, 200, { ok: true, firebase: firebaseReady, provider: PROVIDER, projectId: PROJECT_ID }));
-app.get('/api/config', (req, res) => reply(res, 200, { projectId: PROJECT_ID, provider: PROVIDER, allowedAmounts: ALLOWED_AMOUNTS, upiId: UPI_ID, orderTtlMs: ORDER_TTL_MS }));
+app.get('/api/config', (req, res) => reply(res, 200, {
+  projectId: PROJECT_ID, provider: PROVIDER, allowedAmounts: ALLOWED_AMOUNTS,
+  upiId: UPI_ID, merchantName: MERCHANT_NAME, upiApps: UPI_APPS,
+  orderTtlMs: ORDER_TTL_MS, autoCredit: AUTO_CREDIT,
+  minDeposit: MIN_DEPOSIT, maxDeposit: MAX_DEPOSIT,
+}));
 
 /* ---- public signup: server owns the bonus, the profile doc and the logs.
        The client may NOT write `users`, `transactions` or `referrals` (rules deny it),
@@ -326,7 +350,12 @@ app.get('/api/staff/list', needFirebase, privileged, async (req, res) => {
 app.post('/api/payments/create', needFirebase, auth, async (req, res) => {
   try {
     const amount = Number(req.body.amount);
-    if (!ALLOWED_AMOUNTS.includes(amount)) return reply(res, 400, { error: 'Invalid amount', allowed: ALLOWED_AMOUNTS });
+    // Preset ya user ka typed amount — dono chalenge. Pehle sirf 7 preset
+    // allow the, isliye ₹200 jaise amount par "payment fail" aa jata tha.
+    if (!validAmount(amount)) return reply(res, 400, {
+      error: `Amount ₹${MIN_DEPOSIT}–₹${MAX_DEPOSIT} ke beech hona chahiye`,
+      minDeposit: MIN_DEPOSIT, maxDeposit: MAX_DEPOSIT, presets: ALLOWED_AMOUNTS,
+    });
     const firestore = db();
     const orderRef = firestore.collection('payment_orders').doc();
     const idempotency = req.body.idempotencyKey || null;
@@ -348,7 +377,8 @@ app.post('/api/payments/create', needFirebase, auth, async (req, res) => {
       gatewayOrderId: order.gatewayOrderId || null, upiUri: order.upiUri || null,
       idempotencyKey: idempotency, expiresAt: new Date(order.expiresAt), createdAt: now(),
     });
-    reply(res, 200, order);
+    reply(res, 200, { ...order, upiId: UPI_ID, merchantName: MERCHANT_NAME,
+      upiApps: UPI_APPS, orderTtlMs: ORDER_TTL_MS, autoCredit: AUTO_CREDIT });
   } catch (e) { reply(res, 502, { error: e.message }); }
 });
 
@@ -379,9 +409,13 @@ app.post('/api/payments/confirm', needFirebase, auth, async (req, res) => {
     if (o.status !== 'created') return reply(res, 409, { error: 'Order ' + o.status });
     if (o.expiresAt?.toMillis && o.expiresAt.toMillis() < Date.now()) return reply(res, 410, { error: 'Session expired' });
 
-    // UPI app ne payment reject/cancel kiya ho to credit mat karo.
-    if (upiStatus && /fail|declin|cancel|reject/i.test(String(upiStatus)))
+    // Purane APK jab UPI app koi response na bheje to bhi "Status=FAILURE"
+    // bhej dete the, jabki payment ho chuki hoti thi. Isliye sirf tab reject
+    // karo jab app ne sach me txn data ke saath failure bataya ho.
+    const bad = /fail|declin|cancel|reject/i.test(String(upiStatus || ''));
+    if (bad && (txnRef || approvalRef))
       return reply(res, 402, { error: 'UPI payment was not completed' });
+    if (bad) await ref.set({ note: 'ambiguous UPI callback; verified by intent' }, { merge: true });
 
     const psp = !!(process.env.UPIQR_BASE_URL && process.env.UPIQR_API_KEY);
     let verifiedBy = 'upi-intent';
