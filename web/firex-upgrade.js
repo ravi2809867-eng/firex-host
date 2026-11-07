@@ -41,7 +41,8 @@
     try {
       if (window.currentUser && typeof loadUserProfile === 'function') loadUserProfile(window.currentUser.uid);
       if (typeof loadUserTransactions === 'function') loadUserTransactions();
-      if (typeof filterMyMatches === 'function') filterMyMatches('Upcoming', $('.match-tabs .tab-btn.active'));
+      const mt = window.firexMatchTab ? window.firexMatchTab() : { status: 'Upcoming', btn: null };
+      if (typeof filterMyMatches === 'function') filterMyMatches(mt.status, mt.btn);
       if (typeof calculateProfileStats === 'function') calculateProfileStats();
       if (typeof loadNotifications === 'function') loadNotifications();
     } catch (e) { }
@@ -869,13 +870,18 @@
       if (['cancelled', 'canceled'].includes(x)) return 'Cancelled';
       return String(s == null ? '' : s);
     };
-    const activeStatus = () => {
-      const b = document.querySelector('.match-tabs .tab-btn.active');
-      const t = b ? norm(b.textContent || '') : '';
-      if (t.startsWith('result')) return 'Results';
-      if (t.startsWith('ongoing')) return 'Ongoing';
-      return 'Upcoming';
-    };
+    /* Sirf "My Matches" wale tabs lo — page me 3 .match-tabs hain aur app
+       filterMyMatches sabki active class hata deta hai. */
+    function matchTab() {
+      const tabs = [...document.querySelectorAll('.match-tabs .tab-btn')]
+        .filter(b => /filterMyMatches/i.test(b.getAttribute('onclick') || ''));
+      const btn = tabs.find(b => b.classList.contains('active')) || tabs[0] || null;
+      const t = norm(btn && btn.textContent);
+      const status = t.startsWith('result') ? 'Results' : t.startsWith('ongoing') ? 'Ongoing' : 'Upcoming';
+      return { status, btn };
+    }
+    window.firexMatchTab = matchTab;
+    const activeStatus = () => matchTab().status;
     function renderPlayers() {
       const m = window.selectedMatch, box = document.getElementById('mTabPlayers');
       if (!m || !box) return;
@@ -907,7 +913,11 @@
         const fresh = window.allTournaments.find(x => x.id === sm.id);
         if (fresh) window.selectedMatch = fresh;      // purana reference hatana zaroori
       }
-      try { if (window.currentUser && typeof filterMyMatches === 'function') filterMyMatches(activeStatus(), document.querySelector('.match-tabs .tab-btn.active')); } catch (e) { }
+      try {
+        if (window.currentUser && typeof filterMyMatches === 'function') {
+          const mt = matchTab(); filterMyMatches(mt.status, mt.btn);
+        }
+      } catch (e) { }
       try { if (typeof calculateProfileStats === 'function') calculateProfileStats(); } catch (e) { }
       renderPlayers();
     }
