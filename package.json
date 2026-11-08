@@ -1,13 +1,15 @@
 {
   "name": "firex-app",
-  "version": "4.0.0",
+  "version": "4.1.1",
   "private": true,
   "type": "module",
-  "description": "FireX Esports — one URL serves the app AND the API (no separate API URL)",
+  "description": "FireX Esports \u2014 one URL serves the app AND the API (no separate API URL)",
   "scripts": {
     "start": "node server/index.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
