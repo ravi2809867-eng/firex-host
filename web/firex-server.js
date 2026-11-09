@@ -33,7 +33,19 @@
   }
   window.firexServerSettings = openDialog;
 
+  /* Purana static mirror (new-firex.web.app) khul gaya ho to bina kuch
+     maange chupchap asli server par bhej do — koi prompt/banner nahi. */
+  function maybeRedirect() {
+    var CANON = 'https://firex-3mup.onrender.com';
+    var h = String(location.hostname || '');
+    if (!/^(new-firex\.web\.app|new-firex\.firebaseapp\.com)$/i.test(h)) return;
+    var p = String(location.pathname || '/').replace(/\/+$/, '') || '/';
+    if (!/^\/(admin|staff|downloads|splash)?$/.test(p)) p = '/';
+    try { location.replace(CANON + (p === '/' ? '/' : p)); } catch (e) { }
+  }
+
   function init() {
+    maybeRedirect();
     if (document.getElementById('firexServerGear')) return;
     var b = document.createElement('button');
     b.id = 'firexServerGear';
