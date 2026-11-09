@@ -963,7 +963,7 @@
   function init() {
     injectUI();
     FireX.themes.init();
-    setTimeout(() => { try { FireX.server.check(); } catch (e) { } }, 1200);
+    try { FireX.server.check(); } catch (e) { }   // v4.2.1: sirf silent redirect; koi health probe / URL box nahi
     try {
       firebase.auth().onAuthStateChanged(async (u) => {
         if (u) { try { await FireX.push.register(); } catch (e) { } }
