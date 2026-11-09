@@ -1,13 +1,15 @@
 /* ============================================================================
  * FireX — Server URL control for Admin / Staff pages.
  *
- * User app me ye control firex-upgrade.js ke andar hai (FireX.server.prompt()).
- * Admin/Staff HTML me wo pack load hi nahi hota tha, isliye wahan URL badalne
- * ka koi button nahi tha — sirf pehli launch ka native dialog milta tha aur
- * update ke baad saved URL reh jata tha to wo bhi nahi aata tha.
+ * User app me ye control firex-upgrade.js ke andar hai (header ka ⚙ button).
+ * Admin/Staff HTML me wo pack load nahi hota, isliye yahan chhota floating
+ * ⚙ button add karte hain. Ye AUTOMATIC kuch nahi maangta — sirf tap karne
+ * par native URL dialog khulti hai.
  *
- * Ye file teeno APK ke existing bridge (FireXNative.openServerSettings) ko
- * use karti hai, isliye naya APK banane ki zarurat nahi.
+ * Pehle yahan /api/health check karke warning banner dikhaya jata tha, par
+ * free server ke cold start me wo galati se "galat host" batata tha. Ab
+ * koi automatic banner/prompt nahi. Existing APK ke bridge ka use hota hai,
+ * isliye naya APK banane ki zarurat nahi.
  * ==========================================================================*/
 (function () {
   'use strict';
@@ -31,42 +33,20 @@
   }
   window.firexServerSettings = openDialog;
 
-  function addGear() {
+  function init() {
     if (document.getElementById('firexServerGear')) return;
     var b = document.createElement('button');
     b.id = 'firexServerGear';
     b.type = 'button';
-    b.textContent = '⚙ Server URL';
+    b.textContent = '⚙';
     b.title = 'FireX server URL badalne ke liye tap karein';
+    b.setAttribute('aria-label', 'FireX server URL');
     b.style.cssText = 'position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));'
       + 'z-index:9999998;background:#2a3346;color:#fff;border:1px solid #ff8c00;'
-      + 'border-radius:20px;padding:8px 13px;font-size:11px;font-weight:800;'
-      + 'box-shadow:0 4px 14px rgba(0,0,0,.45);cursor:pointer';
+      + 'border-radius:50%;width:36px;height:36px;font-size:15px;'
+      + 'box-shadow:0 4px 14px rgba(0,0,0,.45);cursor:pointer;opacity:.82';
     b.addEventListener('click', openDialog);
     document.body.appendChild(b);
-  }
-
-  /* Agar ye page kisi aise host par khula hai jahan /api kaam nahi karta
-     (jaise Firebase Hosting), to upar ek warning banner dikhao. */
-  function addBanner() {
-    if (document.getElementById('firexServerBanner')) return;
-    var d = document.createElement('div');
-    d.id = 'firexServerBanner';
-    d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999999;'
-      + 'background:#ff8c00;color:#111;text-align:center;padding:9px 12px;'
-      + 'font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4)';
-    d.textContent = '⚠ ' + location.hostname + ' par /api kaam nahi karega — server URL set karne ke liye yahan tap karein';
-    d.addEventListener('click', openDialog);
-    document.body.appendChild(d);
-  }
-
-  function init() {
-    addGear();
-    try {
-      fetch('/api/health', { cache: 'no-store' })
-        .then(function (r) { if (!r.ok) addBanner(); })
-        .catch(addBanner);
-    } catch (e) { addBanner(); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

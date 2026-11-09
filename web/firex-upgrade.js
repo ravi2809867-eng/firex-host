@@ -535,15 +535,23 @@
      fail hoga — tab hum EK hi URL maang kar usi par bhej dete hain. Doosra
      koi field / setting nahi. */
   FireX.server = {
+    /* AUTOMATIC URL PROMPT HATA DIYA GAYA (v4.2.1).
+       Purana code page load ke 1.2s baad EK hi /api/health call karta tha.
+       Render free instance 10–20s me jagta tha → call fail → app ko lagta
+       tha "ye sirf HTML hai" aur URL maang baithta tha, jabki URL bilkul
+       sahi tha. Ab koi automatic box nahi. URL badalna ho to header ka
+       ⚙ button hai (FireX.server.prompt()). */
     async check() {
-      if (sessionStorage.getItem('firex_skip_server')) return;
-      let ok = false;
-      // Hosting rewrites /api/health -> index.html (HTTP 200), isliye JSON body bhi check karo.
-      try {
-        const r = await fetch(API + '/health', { cache: 'no-store', headers: { Accept: 'application/json' } });
-        if (r.ok) { const j = await r.json().catch(() => null); ok = !!(j && j.ok === true && j.projectId); }
-      } catch (e) { }
-      if (!ok) FireX.server.prompt();
+      const CANON = 'https://firex-3mup.onrender.com';
+      const h = String(location.hostname || '');
+      // Sahi server par to kuch karne ki zarurat hi nahi.
+      if (h === 'firex-3mup.onrender.com' || location.protocol === 'file:') return;
+      // Purana static mirror (new-firex.web.app) khul gaya ho to bina kuch
+      // maange chupchap sahi server par bhej do — koi prompt, koi typing nahi.
+      if (!/^(new-firex\.web\.app|new-firex\.firebaseapp\.com)$/i.test(h)) return;
+      let p = String(location.pathname || '/').replace(/\/+$/, '') || '/';
+      if (!/^\/(admin|staff|downloads|splash)?$/.test(p)) p = '/';
+      try { location.replace(CANON + (p === '/' ? '/' : p)); } catch (e) { }
     },
     prompt() {
       if ($('#firexServerBox')) return;
