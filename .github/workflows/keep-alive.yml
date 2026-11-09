@@ -1,6 +1,9 @@
 # Render free web services 15 min idle ke baad so jate hain aur kabhi-kabhi
 # request par wapas nahi uthte (FireX me yahi "URL kaam nahi kar raha" bana tha).
-# Ye workflow har 5 minute me /api/health ping karta hai → instance jagaa rehta hai.
+#
+# GitHub cron kabhi-kabhi ghanton delay hota hai, isliye har run EK LAMBA job
+# chalata hai jo ~5.5 ghante tak har 4 minute me ping karta hai. Agla cron run
+# purane ko replace kar deta hai → lagbhag continuous coverage.
 # Public repo hai, isliye GitHub Actions minutes free hain.
 name: FireX keep-alive
 
@@ -19,18 +22,17 @@ concurrency:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 345
     steps:
-      - name: Ping FireX health
+      - name: Keep FireX awake
         run: |
           URL="https://firex-3mup.onrender.com/api/health"
-          for i in 1 2 3; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 \
+          END=$(( $(date +%s) + 325 * 60 ))
+          echo "keep-alive until $(date -u -d "@$END" +%H:%M:%SZ 2>/dev/null || echo '+325m')"
+          while [ "$(date +%s)" -lt "$END" ]; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
                    -H 'Cache-Control: no-cache' "$URL" || true)
-            echo "attempt $i -> HTTP $code"
-            if [ "$code" = "200" ]; then echo "FireX is awake"; exit 0; fi
-            sleep 5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) -> HTTP $code"
+            sleep 240
           done
-          # Green rakho taaki spam email na aaye; warning log me rahegi.
-          echo "::warning::FireX health did not return 200 on this ping"
-          exit 0
+          echo "keep-alive window complete"
