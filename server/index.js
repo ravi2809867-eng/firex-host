@@ -26,11 +26,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIR = path.resolve(__dirname, '../web');
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'new-firex';
 const PROVIDER = (process.env.PAYMENT_PROVIDER || 'upiqr').toLowerCase();
-/* Instant auto-credit (koi admin approval nahi). Backwards-compatible with the
-   old AUTO_APPROVE_SIMULATION flag. Set UPI_AUTO_CREDIT=false to require a
-   12-digit UTR instead. With a real UPI PSP configured the server verifies
-   with the PSP before crediting, so this flag is only for zero-config mode. */
-const AUTO_CREDIT = process.env.UPI_AUTO_CREDIT !== 'false' && process.env.AUTO_APPROVE_SIMULATION !== 'false';
+/* PAYMENT SECURITY v4.3 — coins SIRF tab credit honge jab payment verify ho.
+   Purana code UPI app se wapas aate hi (aur bina pay kiye BACK karne par bhi)
+   credit kar deta tha: autoCredit=true + UNKNOWN callback -> /confirm -> credit.
+   Ab default STRICT hai:
+     1) Real UPI PSP (UPIQR_BASE_URL + UPIQR_API_KEY) ho to server gateway se
+        settlement check karega — client callback par bharosa nahi.
+     2) Warna UPI app ka EXPLICIT Status=SUCCESS + txnRef / ApprovalRefNo /
+        txnId + RESULT_OK chahiye. Cancel / back / UNKNOWN / FAILURE par KABHI
+        credit nahi. Koi 12-digit UTR / screenshot / admin approval nahi. */
+const PSP_BASE = process.env.UPIQR_BASE_URL || '';
+const PSP_KEY = process.env.UPIQR_API_KEY || '';
+const PSP_CONFIGURED = !!(PSP_BASE && PSP_KEY);
+const PAYMENT_SECRET = process.env.WEBHOOK_SECRET || 'firex-local-payment-secret';
+const paymentTokenFor = (orderId, userId, amount) =>
+  crypto.createHmac('sha256', PAYMENT_SECRET)
+    .update(`${orderId}|${userId}|${amount}`).digest('hex').slice(0, 32);
 // 30 min default (pehle 8 min tha — users ke payment expire ho jate the).
 // Env me ms (480000) ya minutes (30) dono chalega.
 const ORDER_TTL_MS = (() => {
@@ -149,8 +160,8 @@ const UPI_APPS = [
 ];
 
 function simulationOrder(userId, amount, orderId) {
-  const upiUri = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${amount}&cu=INR&tn=${encodeURIComponent('FIREX-' + orderId.slice(0, 8))}&tr=${encodeURIComponent(orderId.slice(0, 12))}`;
-  return { provider: 'simulation', orderId, amount, currency: 'INR', upiUri, expiresAt: Date.now() + ORDER_TTL_MS };
+  return { provider: 'simulation', orderId, amount, currency: 'INR',
+    upiUri: upiPayUri(amount, orderId), expiresAt: Date.now() + ORDER_TTL_MS };
 }
 async function razorpayOrder(userId, amount, orderId) {
   const keyId = process.env.RAZORPAY_KEY_ID, secret = process.env.RAZORPAY_KEY_SECRET;
@@ -164,43 +175,45 @@ async function razorpayOrder(userId, amount, orderId) {
   if (!r.ok || !j.id) throw new Error('Razorpay order failed: ' + JSON.stringify(j));
   return { provider: 'razorpay', orderId, gatewayOrderId: j.id, amount, currency: 'INR', keyId, expiresAt: Date.now() + ORDER_TTL_MS };
 }
-/* Dynamic UPI intent. Any UPI app handles this scheme — FamPay, GPay,
-   PhonePe, Paytm, BHIM. `tr` is the FireX order ref used to match the
-   callback the UPI app sends back to the APK. */
+/* MINIMAL P2P UPI INTENT (v4.3).
+   `tr` / `tid` / `mc` / `mode` / `orgid` jaise MERCHANT tags hataye gaye hain:
+   personal VPA (yahan @fam) ke saath bhejne par GPay/PhonePe
+   "declined due to security reasons" / "payee is not a merchant" dete the,
+   yani payment hi nahi hoti thi. Order ref ab sirf `tn` note me hai (P2P-safe).
+   `@` raw rakhte hain, spaces %20 karte hain, amount 2 decimal me. */
+const enc = (v) => encodeURIComponent(String(v)).replace(/%40/g, '@');
 function upiPayUri(amount, orderId) {
-  const ref = String(orderId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
-  return `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(MERCHANT_NAME)}` +
-         `&am=${Number(amount).toFixed(2)}&cu=INR&tn=${encodeURIComponent('FIREX-' + ref)}` +
-         `&tr=${encodeURIComponent(ref)}`;
+  const ref = String(orderId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) || 'FIREX';
+  const note = ('FIREX-' + ref).slice(0, 50);
+  return `upi://pay?pa=${enc(UPI_ID)}&pn=${enc(MERCHANT_NAME)}` +
+         `&am=${Number(amount).toFixed(2)}&cu=INR&tn=${enc(note)}`;
 }
 
-async function upiqrOrder(userId, amount, orderId) {
-  const base = process.env.UPIQR_BASE_URL, key = process.env.UPIQR_API_KEY;
+async function upiqrOrder(userId, amount, orderId, paymentToken) {
   const upiUri = upiPayUri(amount, orderId);
-  if (!base || !key) {
-    // Zero-config: server generates its own dynamic QR. No KYC, no keys.
+  if (!PSP_CONFIGURED) {
+    // Zero-config: strict UPI-app-success mode. No KYC, no keys.
     return { provider: 'upiqr', mode: 'dynamic-qr', orderId, amount, currency: 'INR',
-      upiUri, qrUrl: null, expiresAt: Date.now() + ORDER_TTL_MS };
+      upiUri, qrUrl: null, paymentToken, expiresAt: Date.now() + ORDER_TTL_MS };
   }
-  const r = await fetch(`${base.replace(/\/$/, '')}/create-order`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': key },
-    body: JSON.stringify({ amount, orderId, userId }),
+  const r = await fetch(`${PSP_BASE.replace(/\/$/, '')}/create-order`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': PSP_KEY },
+    body: JSON.stringify({ amount, orderId, userId, paymentToken }),
   });
   const j = await r.json();
   if (!r.ok) throw new Error('UPI QR provider failed: ' + JSON.stringify(j).slice(0, 160));
   return { provider: 'upiqr', mode: 'psp', orderId, gatewayOrderId: j.orderId || j.order_id || orderId,
     amount, currency: 'INR', upiUri: j.upiUri || j.upi_uri || upiUri,
-    qrUrl: j.qrUrl || j.qr_url || null, expiresAt: Date.now() + ORDER_TTL_MS };
+    qrUrl: j.qrUrl || j.qr_url || null, paymentToken, expiresAt: Date.now() + ORDER_TTL_MS };
 }
 
 /* Optional server-side verification with a real UPI PSP.
    Returns null when no PSP is configured or the payment is not yet settled. */
 async function pspPaymentSuccess(orderId) {
-  const base = process.env.UPIQR_BASE_URL, key = process.env.UPIQR_API_KEY;
-  if (!base || !key) return null;
+  if (!PSP_CONFIGURED) return null;
   try {
-    const r = await fetch(`${base.replace(/\/$/, '')}/status?orderId=${encodeURIComponent(orderId)}`,
-      { headers: { 'x-api-key': key }, signal: AbortSignal.timeout(8000) });
+    const r = await fetch(`${PSP_BASE.replace(/\/$/, '')}/status?orderId=${encodeURIComponent(orderId)}`,
+      { headers: { 'x-api-key': PSP_KEY }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
     const j = await r.json();
     const s = String(j.status || j.payment_status || j.result || '').toLowerCase();
@@ -213,7 +226,8 @@ app.get('/api/health', (req, res) => reply(res, 200, { ok: true, firebase: fireb
 app.get('/api/config', (req, res) => reply(res, 200, {
   projectId: PROJECT_ID, provider: PROVIDER, allowedAmounts: ALLOWED_AMOUNTS,
   upiId: UPI_ID, merchantName: MERCHANT_NAME, upiApps: UPI_APPS,
-  orderTtlMs: ORDER_TTL_MS, autoCredit: AUTO_CREDIT,
+  orderTtlMs: ORDER_TTL_MS, autoCredit: false, strictPayment: true,
+  verificationMode: PSP_CONFIGURED ? 'psp' : 'upi-app-success',
   minDeposit: MIN_DEPOSIT, maxDeposit: MAX_DEPOSIT,
 }));
 
@@ -363,9 +377,10 @@ app.post('/api/payments/create', needFirebase, auth, async (req, res) => {
       const old = await firestore.collection('payment_orders').where('idempotencyKey', '==', idempotency).limit(1).get();
       if (!old.empty) return reply(res, 200, { replay: true, orderId: old.docs[0].id });
     }
+    const paymentToken = paymentTokenFor(orderRef.id, req.user.uid, amount);
     let order;
     if (PROVIDER === 'razorpay') order = await razorpayOrder(req.user.uid, amount, orderRef.id);
-    else if (PROVIDER === 'upiqr') order = await upiqrOrder(req.user.uid, amount, orderRef.id);
+    else if (PROVIDER === 'upiqr') order = await upiqrOrder(req.user.uid, amount, orderRef.id, paymentToken);
     else order = simulationOrder(req.user.uid, amount, orderRef.id);
     order.qrDataUrl = (order.qrUrl && order.qrUrl.startsWith('data:'))
       ? order.qrUrl
@@ -375,10 +390,13 @@ app.post('/api/payments/create', needFirebase, auth, async (req, res) => {
       userId: req.user.uid, userEmail: req.user.email || '', amount, currency: 'INR',
       status: 'created', provider: order.provider, mode: order.mode || null,
       gatewayOrderId: order.gatewayOrderId || null, upiUri: order.upiUri || null,
-      idempotencyKey: idempotency, expiresAt: new Date(order.expiresAt), createdAt: now(),
+      idempotencyKey: idempotency, paymentToken,
+      verificationMode: PSP_CONFIGURED ? 'psp' : 'upi-app-success',
+      expiresAt: new Date(order.expiresAt), createdAt: now(),
     });
     reply(res, 200, { ...order, upiId: UPI_ID, merchantName: MERCHANT_NAME,
-      upiApps: UPI_APPS, orderTtlMs: ORDER_TTL_MS, autoCredit: AUTO_CREDIT });
+      upiApps: UPI_APPS, orderTtlMs: ORDER_TTL_MS, autoCredit: false,
+      strictPayment: true, verificationMode: PSP_CONFIGURED ? 'psp' : 'upi-app-success' });
   } catch (e) { reply(res, 502, { error: e.message }); }
 });
 
@@ -391,15 +409,16 @@ app.get('/api/payments/status/:orderId', needFirebase, auth, async (req, res) =>
   } catch (e) { reply(res, 500, { error: e.message }); }
 });
 
-/* INSTANT auto-credit — koi admin approval / screenshot / UTR nahi.
-   Flow: UPI QR -> user pays in FamPay/GPay/PhonePe -> UPI app returns to the
-   WebView -> /confirm -> wallet credit (idempotent) -> FCM push.
-   With a real UPI PSP configured, the server double-checks with the PSP first.
-   Webhook bhi same creditWallet() call karta hai, isliye duplicate nahi hota. */
+/* STRICT payment verification (v4.3). Bina pay kiye UPI app se back aane par
+   coins KABHI add nahi honge. Credit keval:
+     A) real UPI PSP configured -> server gateway se settlement verify karega, ya
+     B) UPI app ka explicit SUCCESS callback + txnRef / ApprovalRefNo / txnId
+        + RESULT_OK.
+   Webhook bhi same creditWallet() use karta hai, isliye duplicate nahi. */
 app.post('/api/payments/confirm', needFirebase, auth, async (req, res) => {
   try {
     if (PROVIDER === 'razorpay') return reply(res, 400, { error: 'Razorpay uses its signed webhook' });
-    const { orderId, utr, upiStatus, txnRef, approvalRef } = req.body || {};
+    const { orderId, paymentToken, upi } = req.body || {};
     if (!orderId) return reply(res, 400, { error: 'orderId required' });
     const ref = db().collection('payment_orders').doc(String(orderId));
     const snap = await ref.get();
@@ -409,34 +428,53 @@ app.post('/api/payments/confirm', needFirebase, auth, async (req, res) => {
     if (o.status !== 'created') return reply(res, 409, { error: 'Order ' + o.status });
     if (o.expiresAt?.toMillis && o.expiresAt.toMillis() < Date.now()) return reply(res, 410, { error: 'Session expired' });
 
-    // Purane APK jab UPI app koi response na bheje to bhi "Status=FAILURE"
-    // bhej dete the, jabki payment ho chuki hoti thi. Isliye sirf tab reject
-    // karo jab app ne sach me txn data ke saath failure bataya ho.
-    const bad = /fail|declin|cancel|reject/i.test(String(upiStatus || ''));
-    if (bad && (txnRef || approvalRef))
-      return reply(res, 402, { error: 'UPI payment was not completed' });
-    if (bad) await ref.set({ note: 'ambiguous UPI callback; verified by intent' }, { merge: true });
+    // Server-issued one-time session token: purana / random / replay confirm reject.
+    if (!paymentToken || paymentToken !== o.paymentToken)
+      return reply(res, 400, { error: 'Payment session invalid. Dobara Add Cash karein.' });
 
-    const psp = !!(process.env.UPIQR_BASE_URL && process.env.UPIQR_API_KEY);
-    let verifiedBy = 'upi-intent';
-    if (psp) {
-      const st = await pspPaymentSuccess(String(orderId));
+    let verifiedBy = null, proof = null;
+    if (PSP_CONFIGURED) {
+      // REAL settlement check — client ke callback par bharosa nahi.
+      const st = await pspPaymentSuccess(o.gatewayOrderId || String(orderId));
       if (!st) return reply(res, 202, { ok: false, pending: true,
-        error: 'Payment abhi gateway par confirm nahi hua. 10 second me phir try karein.' });
+        error: 'Payment gateway par abhi confirm nahi hua. 10 second me phir try karein.' });
       verifiedBy = 'psp';
-    } else if (!AUTO_CREDIT && !/^\d{12}$/.test(String(utr || ''))) {
-      return reply(res, 400, { error: 'Enter a valid 12-digit UTR' });
+      proof = { status: st.status || 'SUCCESS', gatewayOrderId: o.gatewayOrderId || String(orderId) };
+    } else {
+      const u = upi || {};
+      const clean = (v) => String(v ?? '').trim();
+      const status = clean(u.status || u.upiStatus).toUpperCase();
+      const txnRef = clean(u.txnRef || u.txnref);
+      const approvalRef = clean(u.approvalRef || u.ApprovalRefNo || u.approvalRefNo);
+      const txnId = clean(u.txnId || u.txnid);
+      const responseCode = clean(u.responseCode);
+      const raw = clean(u.raw || u.message).slice(0, 500);
+      const resultCode = Number(u.resultCode);
+      const refs = [txnRef, approvalRef, txnId].filter(v =>
+        v.length >= 4 && !/^(null|undefined|none|unknown)$/i.test(v));
+      const okResult = Number.isNaN(resultCode) || resultCode === -1; // Activity.RESULT_OK
+      const rawSuccess = /Status=SUCCESS/i.test(raw);
+      const goodCode = !responseCode || responseCode === '00' || responseCode === '0';
+      const explicitSuccess = (status === 'SUCCESS' || rawSuccess) && refs.length > 0 && okResult && goodCode;
+      if (!explicitSuccess) {
+        await ref.set({ lastConfirm: { status, resultCode: Number.isNaN(resultCode) ? null : resultCode,
+          hasRef: refs.length > 0, note: 'no verified UPI success', at: now() } }, { merge: true }).catch(() => {});
+        return reply(res, 402, { ok: false,
+          error: 'UPI payment confirm nahi hua. Bina pay kiye wapas aane par coins nahi milenge. UPI app me payment poora karke wapas aayein.' });
+      }
+      verifiedBy = 'upi-app-success';
+      proof = { status, txnRef, approvalRef, txnId, responseCode,
+        resultCode: Number.isNaN(resultCode) ? null : resultCode, raw };
     }
+
     const r = await creditWallet({
       userId: req.user.uid, amount: o.amount,
-      eventKey: `pay_${orderId}`, orderId: String(orderId), description: 'Instant UPI deposit',
+      eventKey: `pay_${orderId}`, orderId: String(orderId), description: 'Verified UPI deposit',
     });
-    if (txnRef || approvalRef || upiStatus) {
-      await ref.set({ upiStatus: String(upiStatus || ''), txnRef: String(txnRef || ''),
-        approvalRef: String(approvalRef || ''), verifiedBy, verifiedAt: now() }, { merge: true });
-    }
+    await ref.set({ verifiedBy, proof, verifiedAt: now(),
+      paymentToken: admin.firestore.FieldValue.delete() }, { merge: true }).catch(() => {});
     await sendPushToUser(req.user.uid, 'Coins Added ✅',
-      `₹${o.amount} automatically added to your wallet.`, { type: 'payment', orderId: String(orderId) });
+      `₹${o.amount} verified payment ke baad wallet me add hue.`, { type: 'payment', orderId: String(orderId) });
     reply(res, 200, { ok: true, credited: o.amount, verifiedBy, ...r });
   } catch (e) { reply(res, 500, { error: e.message }); }
 });

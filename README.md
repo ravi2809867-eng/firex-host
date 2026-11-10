@@ -15,7 +15,7 @@
 3. **Apply / Create Web Service** → 2–3 min me `https://firex-xxxx.onrender.com` mil jayega.
    Test: `https://firex-xxxx.onrender.com/api/health` → `{"ok":true,"firebase":true,...}`
 
-Bas yahi URL user/admin/staff APK me "FireX server URL" me daalna hai. Ek hi URL. ✅
+APK me ye URL pehle se baked hai — koi URL daalne ki zarurat nahi. Ek hi URL. ✅
 
 ## Free plan ki 2 baatein
 - 15 min idle ke baad service sleep → pehli request 30–60 sec leti hai (cold start). Normal hai.
@@ -31,3 +31,14 @@ FIREBASE_SERVICE_ACCOUNT="$(cat /path/to/key.json)" npm start
 
 Owner console (agar baki ho): Auth → Email/Password Enable, Cloud Messaging Enable,
 composite indexes, `firebase deploy --only storage` **mat** karein.
+
+## Auto-deploy
+`main` par push hote hi `.github/workflows/render-deploy.yml` Render API ko call
+karta hai (`RENDER_API_KEY` + `RENDER_SERVICE_ID` GitHub Secrets me hain). Is repo
+me pehle koi GitHub webhook nahi tha, isliye Render ka `autoDeploy=yes` chup reh
+jata tha — ab workflow pakka trigger karta hai. Secret repo me plain-text nahi hai.
+
+## Payment v4.3
+Bina pay kiye back / cancel / UNKNOWN par coins add **nahi** hote. Credit ke liye
+real PSP settlement ya UPI app ka explicit SUCCESS + txnRef chahiye. UPI intent
+minimal P2P hai (merchant tags hataye), isliye payment decline nahi hoti.

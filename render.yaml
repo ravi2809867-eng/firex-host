@@ -19,8 +19,9 @@ services:
         sync: false
       - key: PAYMENT_PROVIDER
         value: upiqr
+      # v4.3: bina pay kiye credit band. Strict verification default hai.
       - key: UPI_AUTO_CREDIT
-        value: "true"
+        value: "false"
       # ↓ apna asli UPI ID daalein (QR isi par payment lega). Free me koi gateway nahi.
       - key: MERCHANT_UPI_ID
         sync: false
